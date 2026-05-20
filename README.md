@@ -1,0 +1,97 @@
+# AI Fitness Tracker
+<p>
+  <blockquote style="display: inline; font-size: 1.2em; margin: 0;">
+    "A full-stack, dynamic training and nutrition planner."
+  </blockquote>
+</p>
+
+## About This Project
+
+This project started as a way to seamlessly track daily meals and motivate myself with engaging reminders, while having a built-in intelligent WhatsApp AI agent right at my fingertips. 
+
+What began as a simple tracker grew into a multi-provider fallback system with a smart agentic web UI. It's designed to act as your own personal coach that you can talk to naturally, the same way you would with a human.
+
+### The Core Idea
+
+The idea behind this project is very simple. I wanted an AI companion that tracks nutrition, manages schedules, and provides insightful summaries without needing to navigate complex menus.
+
+You can simply send a message on WhatsApp like:
+> "I ate 2 eggs and a slice of bread"
+
+The bot will automatically estimate the calories and protein, log it to your daily intake, and tell you your remaining macros. You can also send commands like `help`, `show my logs`, or `weekly progress` and it will instantly pull up the requested data. And if you make a mistake? Just say "edit #1 to 300cal 20g". It handles it seamlessly.
+
+### Why It Works So Well?
+
+It uses a Multi-Provider AI Fallback system integrating Google Gemini 2.5 Flash and DeepSeek V4 Flash (via OpenRouter). This automatic round-robin fallback handles rate limits (HTTP 429) and high-demand 503 errors gracefully.
+
+The web UI provides a glassmorphism Light Theme dashboard built in React. You can view your 30-day history with dual-axis line charts and even chat with a global floating AI Agent to adjust your weekly workout or meal plans. And all of it runs locally, directly from your laptop.
+
+## Quick Setup
+
+Getting the system up and running is straightforward. I've set it up so you can launch both the frontend and backend with a single script.
+
+### 1. Clone Repository & Install Dependencies
+
+First, clone the repository, set up your database, and install all dependencies:
+
+```bash
+git clone https://github.com/your-username/ai-fitness-tracker.git
+cd ai-fitness-tracker
+npm install
+cd frontend
+npm install
+cd ..
+```
+
+### 2. Setup the Database (Prisma + SQLite)
+
+Initialize the database using Prisma:
+```bash
+npx prisma init --datasource-provider sqlite
+```
+This creates a `prisma/schema.prisma` file and a `.env` file. Update the root `.env` file with your API keys:
+```env
+DATABASE_URL="file:./dev.db"
+GEMINI_API_KEY="your_google_gemini_api_key"
+OPENROUTER_API_KEY="your_openrouter_api_key"
+```
+
+Then generate and push the schema:
+```bash
+npx prisma db push
+npx prisma generate
+```
+
+### 3. Start the Server
+
+Since this is designed to run locally on your laptop, there are no complex pipelines required. You can launch both the Node.js backend and the React Vite frontend simultaneously with one command:
+
+```bash
+npm run dev
+```
+
+This command will automatically launch the server and the UI. Open your browser and visit:
+```
+http://localhost:5173
+```
+
+> [!TIP]
+> The backend runs on port `3000` and the frontend runs on port `5173`. They start together thanks to the `concurrently` script I added in the `package.json`.
+
+### 4. Linking WhatsApp
+
+1. Open the frontend and navigate to the **WhatsApp** tab.
+2. Open WhatsApp on your secondary phone and scan the QR code displayed on the screen.
+3. Once connected, use your **primary phone** to send a message to the bot (e.g., "Hello").
+4. The bot will automatically register the first number that messages it as the "owner" and ignore all other numbers.
+
+You can now chat with the bot to log food, ask for weekly progress, edit logs, or use the Web AI Agent to modify your training plans!
+
+## Under the Hood (Tech Stack)
+
+* **Frontend**: React 19 (Vite) + Vanilla CSS (Glassmorphism) + Recharts + Lucide Icons
+* **Backend**: Node.js + Express
+* **Database**: SQLite + Prisma ORM
+* **Bot**: `@whiskeysockets/baileys` (WhatsApp), `node-telegram-bot-api` (Telegram)
+* **AI Integration**: Google GenAI SDK / OpenRouter API (`axios`)
+* **Scheduler**: `node-cron`

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6366f1" />
+      <stop offset="100%" stop-color="#4f46e5" />
+    </linearGradient>
+  </defs>
+  <rect width="120" height="120" rx="30" fill="url(#bg)"/>
+  
+  <g transform="rotate(-45 60 60)" fill="#ffffff">
+    <!-- Center bar -->
+    <rect x="35" y="55" width="50" height="10" rx="4"/>
+    
+    <!-- Inner weights -->
+    <rect x="25" y="40" width="12" height="40" rx="6"/>
+    <rect x="83" y="40" width="12" height="40" rx="6"/>
+    
+    <!-- Outer weights -->
+    <rect x="15" y="45" width="8" height="30" rx="4"/>
+    <rect x="97" y="45" width="8" height="30" rx="4"/>
+  </g>
+</svg>

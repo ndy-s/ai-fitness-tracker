@@ -1,0 +1,94 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Plan {
+  id            String         @id @default(uuid())
+  dayOfWeek     String         @unique // e.g., "monday", "tuesday"
+  title         String
+  isRestDay     Boolean        @default(false)
+  workouts      Workout[]
+  mealTarget    MealTarget?
+  mealSchedules MealSchedule[]
+}
+
+model Workout {
+  id        String @id @default(uuid())
+  name      String
+  reps      String
+  video     String
+  planId    String
+  plan      Plan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+}
+
+model MealTarget {
+  id       String @id @default(uuid())
+  calories String
+  protein  String
+  carbs    String
+  fats     String
+  planId   String @unique
+  plan     Plan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+}
+
+model MealSchedule {
+  id      String @id @default(uuid())
+  time    String
+  title   String
+  kcal    String
+  items   String // JSON array as string
+  protein String
+  planId  String
+  plan    Plan   @relation(fields: [planId], references: [id], onDelete: Cascade)
+}
+
+model DailyLog {
+  id            String    @id @default(uuid())
+  date          String    @unique // e.g., "YYYY-MM-DD"
+  totalCalories Int       @default(0)
+  totalProtein  Int       @default(0)
+  foodLogs      FoodLog[]
+}
+
+model FoodLog {
+  id          String   @id @default(uuid())
+  time        DateTime @default(now())
+  description String
+  calories    Int
+  protein     Int
+  dailyLogId  String
+  dailyLog    DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+}
+
+model AppConfig {
+  key   String @id
+  value String
+}
+
+model AgentSession {
+  id        String         @id @default(uuid())
+  title     String         @default("New Chat")
+  timestamp DateTime       @default(now())
+  messages  AgentMessage[]
+}
+
+model AgentMessage {
+  id        String       @id @default(uuid())
+  role      String       // "user" or "assistant"
+  content   String
+  timestamp DateTime     @default(now())
+  sessionId String
+  session   AgentSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+}
+
+model ActivityLog {
+  id        String   @id @default(uuid())
+  timestamp DateTime @default(now())
+  action    String   // e.g., "FOOD_LOGGED", "PLAN_UPDATED", "CONFIG_UPDATED"
+  details   String   // JSON string with extra details
+}

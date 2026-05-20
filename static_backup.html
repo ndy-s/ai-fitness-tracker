@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Fitness App</title>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: system-ui, -apple-system, Arial;
+    }
+
+    body {
+        background: #0b1220;
+        color: #e5e7eb;
+        display: flex;
+    }
+
+    /* SIDEBAR */
+    .sidebar {
+        width: 240px;
+        height: 100vh;
+        position: fixed;
+        background: #0f172a;
+        padding: 20px;
+        border-right: 1px solid #1f2937;
+    }
+
+    .sidebar h2 {
+        color: #60a5fa;
+        margin-bottom: 18px;
+        font-size: 18px;
+    }
+
+    .day-btn {
+        width: 100%;
+        padding: 10px 12px;
+        margin: 6px 0;
+        border-radius: 10px;
+        border: 1px solid #1f2937;
+        background: transparent;
+        color: #cbd5e1;
+        text-align: left;
+        cursor: pointer;
+        transition: 0.2s;
+        font-size: 14px;
+    }
+
+    .day-btn:hover {
+        background: #1e293b;
+        color: #60a5fa;
+    }
+
+    .day-btn.active {
+        background: #1e293b;
+        border-color: #60a5fa;
+        color: #60a5fa;
+    }
+
+    /* MAIN */
+    .main {
+        margin-left: 240px;
+        padding: 28px;
+        width: 100%;
+    }
+
+    .title {
+        font-size: 22px;
+        color: #60a5fa;
+        margin-bottom: 6px;
+    }
+
+    .subtitle {
+        color: #94a3b8;
+        font-size: 13px;
+        margin-bottom: 18px;
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .card {
+        background: #111827;
+        border: 1px solid #1f2937;
+        border-radius: 14px;
+        padding: 16px;
+        transition: 0.2s;
+    }
+
+    .card:hover {
+        border-color: #334155;
+    }
+
+    .section-title {
+        font-size: 14px;
+        color: #93c5fd;
+        margin-bottom: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    ul {
+        margin-left: 18px;
+        line-height: 1.7;
+        font-size: 14px;
+    }
+
+    .exercise {
+        margin-bottom: 10px;
+    }
+
+    .exercise b {
+        color: #e5e7eb;
+    }
+
+    a {
+        color: #60a5fa;
+        font-size: 12px;
+        text-decoration: none;
+    }
+
+    a:hover {
+        text-decoration: underline;
+    }
+
+    .tag {
+        margin-top: 10px;
+        font-size: 12px;
+        color: #93c5fd;
+    }
+
+    .meal-time {
+        margin-bottom: 14px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid #1f2937;
+    }
+
+    .meal-time:last-child {
+        border-bottom: none;
+    }
+
+</style>
+</head>
+
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+    <h2>Training Plan</h2>
+
+    <button class="day-btn active" onclick="showDay('monday')">Monday</button>
+    <button class="day-btn" onclick="showDay('tuesday')">Tuesday</button>
+    <button class="day-btn" onclick="showDay('wednesday')">Wednesday</button>
+    <button class="day-btn" onclick="showDay('friday')">Friday</button>
+    <button class="day-btn" onclick="showDay('saturday')">Saturday</button>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+    <div class="title" id="title">Monday</div>
+    <div class="subtitle">Workout + Nutrition Plan</div>
+
+    <div id="content" class="grid"></div>
+</div>
+
+<script>
+
+const defaultMeal = {
+    target: {
+        calories: "2650 kcal",
+        protein: "145g",
+        carbs: "320g",
+        fats: "70g"
+    },
+    schedule: [
+        { time:"07:00", title:"Breakfast", kcal:"~550 kcal", items:["Eggs","Bread","Milk","Banana"], protein:"35g" },
+        { time:"10:00", title:"Snack", kcal:"~300 kcal", items:["Yogurt","Nuts","Apple"], protein:"20g" },
+        { time:"13:00", title:"Lunch", kcal:"~700 kcal", items:["Rice","Chicken","Tempeh","Vegetables"], protein:"45g" },
+        { time:"16:00", title:"Pre-Workout", kcal:"~350 kcal", items:["Bread","Peanut butter","Banana"], protein:"18g" },
+        { time:"19:30", title:"Dinner", kcal:"~650 kcal", items:["Rice","Fish","Eggs","Vegetables"], protein:"42g" },
+        { time:"21:30", title:"Night Snack", kcal:"~250 kcal", items:["Milk","Eggs or tofu"], protein:"20g" }
+    ]
+};
+
+const data = {
+    monday: {
+        title: "Monday",
+        workout: [
+            { name:"Push-ups", reps:"4 × 10–15", video:"https://www.youtube.com/results?search_query=push+up+form" },
+            { name:"Pike Push-ups", reps:"3 × 10", video:"https://www.youtube.com/results?search_query=pike+push+up" },
+            { name:"Diamond Push-ups", reps:"3 × 8–10", video:"https://www.youtube.com/results?search_query=diamond+push+up" }
+        ],
+        meal: defaultMeal
+    },
+
+    tuesday: {
+        title: "Tuesday",
+        workout: [
+            { name:"Superman Hold", reps:"4 × 30 sec", video:"https://www.youtube.com/results?search_query=superman+hold" },
+            { name:"Y-T-W Raises", reps:"3 × 10", video:"https://www.youtube.com/results?search_query=YT+W+exercise" }
+        ],
+        meal: defaultMeal
+    },
+
+    wednesday: {
+        title: "Wednesday",
+        workout: [
+            { name:"Squats", reps:"4 × 15–20", video:"https://www.youtube.com/results?search_query=bodyweight+squat" },
+            { name:"Lunges", reps:"3 × 10", video:"https://www.youtube.com/results?search_query=lunges" }
+        ],
+        meal: defaultMeal
+    },
+
+    friday: {
+        title: "Friday",
+        workout: [
+            { name:"Slow Push-ups", reps:"3 × 8", video:"https://www.youtube.com/results?search_query=slow+push+up" },
+            { name:"Plank", reps:"3 × 45 sec", video:"https://www.youtube.com/results?search_query=plank" }
+        ],
+        meal: defaultMeal
+    },
+
+    saturday: {
+        title: "Saturday",
+        workout: [
+            { name:"Brisk Walk", reps:"20–25 min", video:"https://www.youtube.com/results?search_query=zone+2+walking" },
+            { name:"Hollow Hold", reps:"3 × 20 sec", video:"https://www.youtube.com/results?search_query=hollow+body+hold" }
+        ],
+        meal: defaultMeal
+    }
+};
+
+function renderWorkout(workout) {
+    return `
+        <div class="card">
+            <div class="section-title">Workout</div>
+            ${workout.map(w => `
+                <div class="exercise">
+                    <b>${w.name}</b> — ${w.reps}<br/>
+                    <a href="${w.video}" target="_blank">Watch form</a>
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+
+function renderMeal(meal) {
+    return `
+        <div class="card">
+            <div class="section-title">Nutrition Target</div>
+            <ul>
+                <li>${meal.target.calories}</li>
+                <li>${meal.target.protein}</li>
+                <li>${meal.target.carbs}</li>
+                <li>${meal.target.fats}</li>
+            </ul>
+        </div>
+
+        <div class="card">
+            <div class="section-title">Meal Schedule</div>
+            ${meal.schedule.map(m => `
+                <div class="meal-time">
+                    <b>${m.time} — ${m.title}</b>
+                    <div class="subtitle">${m.kcal}</div>
+                    <ul>
+                        ${m.items.map(i => `<li>${i}</li>`).join("")}
+                    </ul>
+                    <div class="tag">${m.protein}</div>
+                </div>
+            `).join("")}
+        </div>
+    `;
+}
+
+function render(day) {
+    const d = data[day];
+    document.getElementById("title").innerText = d.title;
+
+    document.getElementById("content").innerHTML = `
+        ${renderWorkout(d.workout)}
+        ${renderMeal(d.meal)}
+    `;
+}
+
+function showDay(day) {
+    render(day);
+    document.querySelectorAll(".day-btn").forEach(b => b.classList.remove("active"));
+    event.target.classList.add("active");
+}
+
+render("monday");
+
+</script>
+
+</body>
+</html>
+

@@ -1,0 +1,32 @@
+{
+  "name": "ai-fitness-tracker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "concurrently \"node server/index.js\" \"npm run dev --prefix frontend\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@google/genai": "^2.4.0",
+    "@prisma/client": "^6.19.3",
+    "@whiskeysockets/baileys": "^7.0.0-rc11",
+    "axios": "^1.16.1",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
+    "node-cron": "^4.2.1",
+    "node-telegram-bot-api": "^0.67.0",
+    "pino": "^10.3.1",
+    "prisma": "^6.19.3",
+    "qrcode": "^1.5.4",
+    "sqlite3": "^6.0.1"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
