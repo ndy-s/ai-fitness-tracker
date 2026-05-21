@@ -26,6 +26,9 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
     const lowerText = text.toLowerCase().trim();
     let intent = null;
     let target = '';
+    let targetWorkout = '';
+    let workoutName = '';
+    let reps = '';
 
     const helpWords = ['help', 'menu', 'what can you do', 'commands', 'how to use', '/start', '/help'];
     const statsWords = ['calories today', 'how many calories', 'stats', 'progress', 'macros today', 'how much protein', 'total today', 'how many left', 'remaining', 'target'];
@@ -34,6 +37,48 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
     const deleteWords = ['delete', 'remove'];
     const editWords = ['edit', 'update', 'change', 'correct', 'fix'];
     const weeklyWords = ['weekly', 'this week', 'week progress', 'last 7', 'past week', 'week summary'];
+    const workoutLogWords = ['completed', 'finished', 'did', 'logged', 'done with', 'just did', 'i did', 'log', 'logging'];
+    const workoutContextWords = ['push-up', 'pushup', 'push up', 'squat', 'plank', 'burpee', 'lunge', 'curl', 'press', 'deadlift', 'row', 'pull-up', 'pullup', 'pull up', 'crunch', 'sit-up', 'situp', 'dip', 'yoga', 'stretch', 'jog', 'run', 'walk', 'cardio', 'exercise', 'workout', 'rep', 'set', 'reps', 'sets'];
+
+    // Helper: parse workout name and reps from text using regex
+    const parseWorkoutFromText = (txt) => {
+        let parsedName = '';
+        let parsedReps = '';
+
+        // Match reps patterns like "2x10", "3x8", "3 x 12", "3 sets of 10", "3 sets 10 reps", "10 reps", "30 min", "30m"
+        const repsMatch = txt.match(/(\d+)\s*[x×]\s*(\d+)/i)
+            || txt.match(/(\d+)\s*sets?\s*(?:of\s*)?(\d+)\s*(?:reps?)?/i)
+            || txt.match(/(\d+)\s*(?:reps?|rep)/i)
+            || txt.match(/(\d+)\s*(?:min(?:utes?)?|m(?:in)?s?)\b/i);
+
+        if (repsMatch) {
+            if (repsMatch[2]) {
+                parsedReps = `${repsMatch[1]}x${repsMatch[2]}`;
+            } else {
+                // Single number with unit
+                parsedReps = repsMatch[0].trim();
+            }
+        }
+
+        // Try to extract the workout name by stripping trigger words, reps, and common filler
+        let namePart = txt
+            .replace(/(i\s+)?(completed|finished|did|logged|log(?:ging)?|done\s+with|just\s+did)/gi, '')
+            .replace(/(\d+)\s*[x×]\s*(\d+)/gi, '')
+            .replace(/(\d+)\s*sets?\s*(?:of\s*)?\d+\s*(?:reps?)?/gi, '')
+            .replace(/(\d+)\s*(?:reps?|rep)/gi, '')
+            .replace(/(\d+)\s*(?:min(?:utes?)?|m(?:in)?s?)/gi, '')
+            .replace(/\b(today|yesterday|this morning|this evening|just now)\b/gi, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        // Clean up leading/trailing punctuation and filler
+        namePart = namePart.replace(/^[\s,.-]+|[\s,.-]+$/g, '').trim();
+        if (namePart.length > 1) {
+            parsedName = namePart;
+        }
+
+        return { parsedName, parsedReps };
+    };
 
     if (helpWords.some(w => lowerText.includes(w)) || lowerText === 'help' || lowerText === '?') {
         intent = 'HELP';
@@ -57,24 +102,36 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
             const match = lowerText.match(/(?:delete|remove)\s+(?:the\s+)?(.+)/);
             if (match) target = match[1].trim();
         }
+    } else if (
+        workoutLogWords.some(w => lowerText.includes(w)) &&
+        workoutContextWords.some(w => lowerText.includes(w))
+    ) {
+        // Keyword-based workout logging: requires both a trigger word AND a workout context word
+        intent = 'LOG_WORKOUT';
+        const parsed = parseWorkoutFromText(lowerText);
+        workoutName = parsed.parsedName;
+        reps = parsed.parsedReps;
     }
 
     if (intent === null) {
         try {
             const { classifyBotIntent } = require('./ai');
             const aiResult = await classifyBotIntent(text);
-            const validIntents = ['LOG_FOOD', 'GET_STATS', 'GET_PLAN', 'GET_LOGS', 'DELETE_FOOD', 'EDIT_FOOD', 'GET_WEEKLY', 'HELP', 'UNSUPPORTED'];
+            const validIntents = ['LOG_FOOD', 'GET_STATS', 'GET_PLAN', 'GET_LOGS', 'DELETE_FOOD', 'DELETE_WORKOUT', 'EDIT_FOOD', 'GET_WEEKLY', 'HELP', 'UNSUPPORTED', 'LOG_WORKOUT'];
 
             if (aiResult && validIntents.includes(aiResult.intent)) {
                 intent = aiResult.intent;
                 if (aiResult.target) target = aiResult.target;
+                if (aiResult.targetWorkout) targetWorkout = aiResult.targetWorkout;
+                if (aiResult.workoutName) workoutName = aiResult.workoutName;
+                if (aiResult.reps) reps = aiResult.reps;
             } else {
                 intent = 'UNSUPPORTED';
             }
         } catch (err) {
             console.error('AI intent classification failed:', err.message);
-            if (err.message.includes('No AI providers configured') || err.message.includes('missing API keys') || err.message.includes('is not set in configuration')) {
-                return 'Heads up — AI isn\'t set up yet.\n\nYou\'ll need to add your API keys (Gemini or OpenRouter) in the web dashboard under *Settings & Management* first.\n\nYou can still use keyword commands though:\n• "stats" — today\'s progress\n• "show my logs" — see what you logged\n• "weekly progress" — weekly summary\n• "plan today" — today\'s workout\n• "edit #1 300cal 20g" — fix a log\n• "delete #2" — remove a log';
+            if (err.message.includes('No AI providers configured') || err.message.includes('missing API keys') || err.message.includes('is not set in configuration') || err.message.includes('API key not valid')) {
+                return 'Heads up — AI isn\'t set up yet.\n\nYou\'ll need to add your API keys (Gemini or OpenRouter) in the web dashboard under *Settings & Management* first.\n\nYou can still use keyword commands though:\n• "stats" — today\'s progress\n• "show my logs" — see what you logged\n• "weekly progress" — weekly summary\n• "plan today" — today\'s workout\n• "completed 2x10 push-ups" — log a workout\n• "edit #1 300cal 20g" — fix a log\n• "delete #2" — remove a log';
             }
             intent = 'UNSUPPORTED';
         }
@@ -129,6 +186,68 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
         });
 
         return `Logged *${result.description}* — ${result.calories} kcal, ${result.protein}g protein.`;
+
+    } else if (intent === 'LOG_WORKOUT') {
+        let dailyLog = await prisma.dailyLog.findUnique({ where: { date: today } });
+        if (!dailyLog) {
+            dailyLog = await prisma.dailyLog.create({ data: { date: today } });
+        }
+
+        const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+        const todayStr = days[new Date().getDay()];
+        const plan = await prisma.plan.findUnique({
+            where: { dayOfWeek: todayStr },
+            include: { workouts: true }
+        });
+
+        let matchedWorkout = null;
+        if (plan && plan.workouts && workoutName) {
+            matchedWorkout = plan.workouts.find(w => 
+                w.name.toLowerCase().includes(workoutName.toLowerCase()) ||
+                workoutName.toLowerCase().includes(w.name.toLowerCase())
+            );
+        }
+
+        const finalName = matchedWorkout ? matchedWorkout.name : (workoutName || 'Workout');
+        const finalReps = reps || (matchedWorkout ? matchedWorkout.reps : '1 session');
+        const workoutId = matchedWorkout ? matchedWorkout.id : null;
+
+        let existingLog = null;
+        if (workoutId) {
+            existingLog = await prisma.workoutLog.findFirst({
+                where: { dailyLogId: dailyLog.id, workoutId: workoutId }
+            });
+        }
+
+        if (existingLog) {
+            await prisma.workoutLog.update({
+                where: { id: existingLog.id },
+                data: { reps: finalReps }
+            });
+            await prisma.activityLog.create({
+                data: {
+                    action: 'WORKOUT_UPDATED',
+                    details: JSON.stringify({ source: sourceLogName, name: finalName, reps: finalReps })
+                }
+            });
+            return `Updated *${finalName}* to (${finalReps}) successfully! 💪`;
+        } else {
+            await prisma.workoutLog.create({
+                data: {
+                    name: finalName,
+                    reps: finalReps,
+                    workoutId: workoutId,
+                    dailyLogId: dailyLog.id
+                }
+            });
+            await prisma.activityLog.create({
+                data: {
+                    action: 'WORKOUT_LOGGED',
+                    details: JSON.stringify({ source: sourceLogName, name: finalName, reps: finalReps })
+                }
+            });
+            return `Logged *${finalName}* (${finalReps}) successfully! 💪`;
+        }
 
     } else if (intent === 'GET_STATS') {
         const log = await prisma.dailyLog.findUnique({ where: { date: today } });
@@ -186,19 +305,39 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
     } else if (intent === 'GET_LOGS') {
         const log = await prisma.dailyLog.findUnique({
             where: { date: today },
-            include: { foodLogs: { orderBy: { time: 'asc' } } }
+            include: { 
+                foodLogs: { orderBy: { time: 'asc' } },
+                workoutLogs: { orderBy: { time: 'asc' } }
+            }
         });
-        if (!log || log.foodLogs.length === 0) {
-            return 'No food logged today yet.';
-        } else {
-            let reply = `*Today's food log:*\n\n`;
+        
+        const hasFood = log && log.foodLogs.length > 0;
+        const hasWorkouts = log && log.workoutLogs.length > 0;
+
+        if (!hasFood && !hasWorkouts) {
+            return 'No activity logged today yet.';
+        }
+
+        let reply = '';
+        if (hasFood) {
+            reply += `*Today's food log:*\n\n`;
             log.foodLogs.forEach((f, i) => {
                 reply += `*#${i + 1}* ${f.description} — ${f.calories} kcal, ${f.protein}g\n`;
             });
-            reply += `\n*Total:* ${log.totalCalories} kcal, ${log.totalProtein}g protein`;
-            reply += `\n\n_Say "edit #1 300cal 20g" or "delete #2" to make changes._`;
-            return reply;
+            reply += `\n*Total:* ${log.totalCalories} kcal, ${log.totalProtein}g protein\n\n`;
         }
+
+        if (hasWorkouts) {
+            reply += `*Today's workouts logged:*\n\n`;
+            log.workoutLogs.forEach((w, i) => {
+                reply += `• ${w.name} — ${w.reps}\n`;
+            });
+        }
+
+        if (hasFood) {
+            reply += `\n_Say "edit #1 300cal 20g" or "delete #2" to make changes to your foods._`;
+        }
+        return reply.trim();
 
     } else if (intent === 'DELETE_FOOD') {
         const log = await prisma.dailyLog.findUnique({
@@ -259,6 +398,41 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
         });
 
         return `Done, removed ${deletedDescriptions.join(', ')} (−${totalCalDeleted} kcal).`;
+
+    } else if (intent === 'DELETE_WORKOUT') {
+        const log = await prisma.dailyLog.findUnique({
+            where: { date: today },
+            include: { workoutLogs: { orderBy: { time: 'asc' } } }
+        });
+
+        if (!log || log.workoutLogs.length === 0) {
+            return 'No workouts logged today, so there\'s nothing to delete.';
+        }
+
+        let toDeleteItems = [];
+        if (targetWorkout) {
+            const found = log.workoutLogs.find(w => w.name.toLowerCase().includes(targetWorkout.toLowerCase()));
+            if (found) toDeleteItems.push(found);
+        }
+
+        if (toDeleteItems.length === 0) {
+            return `Couldn't find that workout log to delete. Try checking your spelling or view your logs.`;
+        }
+
+        let deletedDescriptions = [];
+        for (const item of toDeleteItems) {
+            await prisma.workoutLog.delete({ where: { id: item.id } });
+            deletedDescriptions.push(item.name);
+            
+            await prisma.activityLog.create({
+                data: {
+                    action: 'WORKOUT_DELETED',
+                    details: JSON.stringify({ source: sourceLogName, id: item.id })
+                }
+            });
+        }
+
+        return `Done, removed workout: ${deletedDescriptions.join(', ')}.`;
 
     } else if (intent === 'EDIT_FOOD') {
         const log = await prisma.dailyLog.findUnique({
@@ -368,9 +542,9 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
         return reply;
 
     } else if (intent === 'UNSUPPORTED') {
-        return `Hey, I can only help with fitness and nutrition stuff. Here's what I understand:\n\n• *Log food* — "I ate 2 eggs and toast"\n• *Check stats* — "How many calories today?"\n• *Weekly progress* — "Weekly progress"\n• *View logs* — "What did I eat today?"\n• *Edit a log* — "Edit #1 to 300cal 20g"\n• *Delete a log* — "Delete #2"\n• *Today's plan* — "What's my workout today?"\n\nSay *help* if you need more info.`;
+        return `Hey, I can only help with fitness and nutrition stuff. Here's what I understand:\n\n• *Log food* — "I ate 2 eggs and toast"\n• *Log workout* — "completed 2x10 push-ups" or "did 3x12 squats"\n• *Check stats* — "How many calories today?"\n• *Weekly progress* — "Weekly progress"\n• *View logs* — "What did I eat today?"\n• *Edit a log* — "Edit #1 to 300cal 20g"\n• *Delete a log* — "Delete #2"\n• *Today's plan* — "What's my workout today?"\n\nSay *help* if you need more info.`;
     } else {
-        return `*Hey! Here's what I can help you with:*\n\n• *Log food* — just tell me what you ate, like "2 eggs and toast"\n• *Check progress* — "how many calories today?" or "target"\n• *Weekly summary* — "weekly progress"\n• *View logs* — "what did I eat today?"\n• *Edit a log* — "edit #1 to 300cal 20g"\n• *Delete a log* — "delete #2"\n• *Today's plan* — "what's my workout today?"\n\nJust type naturally, I'll figure it out.`;
+        return `*Hey! Here's what I can help you with:*\n\n• *Log food* — just tell me what you ate, like "2 eggs and toast"\n• *Log workout* — "completed 2x10 push-ups" or "finished 3 sets squats"\n• *Check progress* — "how many calories today?" or "target"\n• *Weekly summary* — "weekly progress"\n• *View logs* — "what did I eat today?"\n• *Edit a log* — "edit #1 to 300cal 20g"\n• *Delete a log* — "delete #2"\n• *Today's plan* — "what's my workout today?"\n\nJust type naturally, I'll figure it out.`;
     }
 }
 

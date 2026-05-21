@@ -12,9 +12,7 @@ if (!PORT) throw new Error('PORT is not set in environment variables');
 app.use(cors());
 app.use(express.json());
 
-
 app.use('/api', routes);
-
 
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
@@ -28,7 +26,6 @@ prisma.appConfig.findUnique({ where: { key: 'bot_platform' } }).then(config => {
         startTelegramBot();
     }
 });
-
 
 startCron();
 

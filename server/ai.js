@@ -193,22 +193,27 @@ You are a fitness bot AI assistant routing a user's WhatsApp message.
 Analyze the user's message: "${text}"
 
 Classify it into EXACTLY ONE of the following intents:
-- LOG_FOOD: The user is reporting food they ate (e.g. "I ate a banana", "2 eggs and toast", "nasi goreng 1 porsi"). The message MUST describe actual food or drinks.
+- LOG_FOOD: The user is reporting food they ate (e.g. "log a banana", "I ate 2 eggs and toast", "log 4 slices white bread"). The message MUST describe actual food or drinks.
+- LOG_WORKOUT: The user is reporting a workout they completed (e.g. "log 2x10 push-ups", "did standard push-ups 3x8", "log push up 2x10 today").
 - GET_STATS: The user wants to know their daily progress, calories, or macros (e.g. "how many calories today?", "show my stats").
 - GET_PLAN: The user is asking about their workout or meal plan for today (e.g. "what is today's plan?", "what workout today?").
-- GET_LOGS: The user wants to see a list of all foods they logged today (e.g. "what did I eat today?", "show my logs").
+- GET_LOGS: The user wants to see a list of all foods and workouts they logged today (e.g. "what did I eat today?", "show my logs").
 - DELETE_FOOD: The user wants to delete or remove a wrongly logged food (e.g. "delete the banana", "I didn't eat the burger remove it").
+- DELETE_WORKOUT: The user wants to delete or remove a wrongly logged workout (e.g. "remove sit up", "delete my push ups log").
 - EDIT_FOOD: The user wants to edit or update a previously logged food entry (e.g. "edit #1 to 300cal", "update #2 to 500 calories 30g protein").
 - GET_WEEKLY: The user wants to see their weekly summary or progress (e.g. "weekly progress", "how was my week?").
 - HELP: The user is asking what the bot can do or asking for help (e.g. "help", "what can you do?").
-- UNSUPPORTED: The message does NOT relate to any fitness or nutrition feature listed above (e.g. greetings like "hello", questions about weather, random conversation, or any request outside of food logging, stats, plans, and logs).
+- UNSUPPORTED: The message does NOT relate to any fitness or nutrition feature listed above (e.g. greetings like "hello", questions about weather, random conversation, or any request outside of food/workout logging, stats, plans, and logs).
 
-IMPORTANT: Only classify as LOG_FOOD if the message clearly describes food or drink items. General greetings, questions, chit-chat, or unrelated requests must be classified as UNSUPPORTED.
+IMPORTANT: Only classify as LOG_FOOD if the message clearly describes food or drink items. Only classify as LOG_WORKOUT if the message clearly describes exercises or physical activity. General greetings, questions, chit-chat, or unrelated requests must be classified as UNSUPPORTED.
 
 Reply ONLY with a valid JSON object in this exact format, with no markdown formatting or backticks:
 {
   "intent": "<ONE OF THE INTENTS ABOVE>",
-  "target": "<If intent is DELETE_FOOD, the name of the food to delete, else empty string>"
+  "target": "<If intent is DELETE_FOOD, the name of the food to delete, else empty string>",
+  "targetWorkout": "<If intent is DELETE_WORKOUT, the name of the workout to delete, else empty string>",
+  "workoutName": "<If intent is LOG_WORKOUT, the name of the exercise/workout, else empty string>",
+  "reps": "<If intent is LOG_WORKOUT, the reps/sets or duration completed e.g. '2x10' or '30 min', else empty string>"
 }
 `;
     const resultText = await callWithRoundRobin(prompt);
@@ -225,7 +230,8 @@ Base Message:
 ${baseMsg}
 """
 
-Rewrite this message to be engaging, friendly, and unique. Keep all the factual details (times, items, reps, targets) from the base message exactly intact, but wrap them in an encouraging tone with some emojis. Do not make the message overly long (keep it concise for WhatsApp). 
+Rewrite this message to sound like a quick, casual text message from a friend checking in. Keep all the factual details (times, items, reps, targets) from the base message exactly intact, but make it very natural and grounded.
+CRITICAL RULE: DO NOT USE ANY EMOJIS AT ALL. Keep it very short, casual, and text-message like. Sound like a real human, do not sound like a coach or AI.
 
 Return ONLY the rewritten message, no quotes, no markdown blocks.
 `;
@@ -255,4 +261,40 @@ Estimate the nutritional value. Reply ONLY with a valid JSON object in this exac
     return JSON.parse(resultText);
 }
 
-module.exports = { estimateCalories, getProviders, callChatWithRoundRobin, classifyBotIntent, generateEngagingReminder };
+async function generateHumaneReminder(meal) {
+    let itemsList = 'planned items';
+    try {
+        const parsed = JSON.parse(meal.items);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+            itemsList = parsed.join(', ');
+        }
+    } catch (e) {}
+
+    const baseMsg = `Gentle check-in! Did you get a chance to have your ${meal.title}? Target: ${meal.kcal} kcal, ${meal.protein}g protein. Planned: ${itemsList}.`;
+
+    const prompt = `
+You are a warm, supportive, and empathetic personal health assistant. You are checking in on the user because they missed logging a scheduled meal in their fitness plan.
+
+Here is the meal they missed:
+- Meal Title: "${meal.title}"
+- Scheduled Time: ${meal.time}
+- Target Calories: ${meal.kcal} kcal
+- Target Protein: ${meal.protein}
+- Planned Items: ${itemsList}
+
+Write a quick, casual text message to check if they ate it.
+Guidelines:
+1. Sound like a real human texting a friend. Be extremely casual. Do NOT sound like a robot, AI, or a formal coach. 
+2. Suggest a quick, realistic tip or simple food alternative to help them meet the calorie (${meal.kcal} kcal) and protein (${meal.protein}) target if they missed it.
+3. Keep it brief and easy to read (max 2-3 sentences), exactly like a real text message. DO NOT USE ANY EMOJIS AT ALL.
+4. Return ONLY the message text, with no extra commentary, quotes, or markdown wrappers.
+`;
+    try {
+        return await callWithRoundRobin(prompt);
+    } catch (err) {
+        console.error("Failed to generate humane reminder, falling back to base message:", err);
+        return baseMsg;
+    }
+}
+
+module.exports = { estimateCalories, getProviders, callChatWithRoundRobin, classifyBotIntent, generateEngagingReminder, generateHumaneReminder };

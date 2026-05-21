@@ -12,7 +12,7 @@ async function handleAgentChat(messages, sessionId) {
     const todayStr = new Date().toISOString().split('T')[0];
     const dailyLog = await prisma.dailyLog.findUnique({
         where: { date: todayStr },
-        include: { foodLogs: true }
+        include: { foodLogs: true, workoutLogs: true }
     });
 
     const systemPrompt = `
@@ -20,13 +20,13 @@ You are AI Fitness Tracker, an AI fitness and nutrition agent.
 Here is the user's current weekly plan in JSON format:
 ${JSON.stringify(plans)}
 
-Here is the user's daily food log and stats for today (${todayStr}) in JSON format:
-${JSON.stringify(dailyLog || { totalCalories: 0, totalProtein: 0, foodLogs: [] })}
+Here is the user's daily food log, workout log, and stats for today (${todayStr}) in JSON format:
+${JSON.stringify(dailyLog || { totalCalories: 0, totalProtein: 0, foodLogs: [], workoutLogs: [] })}
 
 Your job is to answer their questions about training and nutrition.
-You can ALSO act as a personal assistant to update their plan, log their food, edit, or delete their food logs based on their requests.
+You can ALSO act as a personal assistant to update their plan, log food/workouts, or manage logs based on their requests.
 To perform these actions, you MUST output your response AND append a special JSON command at the very end of your response to update the database.
-If they ask to log food, you should estimate the calories and protein yourself if they don't provide them.
+If they ask to log food, estimate the calories and protein yourself if they don't provide them.
 
 Available JSON commands (append ONLY ONE at the end if an action is needed, EXACTLY in this format):
 
@@ -60,7 +60,21 @@ Available JSON commands (append ONLY ONE at the end if an action is needed, EXAC
   "id": "food-log-id-here"
 }
 
-5. To update system configurations (like AI providers or WhatsApp whitelist number):
+5. To log a completed workout (optionally matching a workout ID from today's plan):
+@@LOG_WORKOUT@@
+{
+  "name": "Standard Push-ups",
+  "reps": "2x10",
+  "workoutId": "optional-workout-id-here"
+}
+
+6. To delete a workout log (use the exact 'id' from today's workout log JSON):
+@@DELETE_WORKOUT@@
+{
+  "id": "workout-log-id-here"
+}
+
+7. To update system configurations (like AI providers or WhatsApp whitelist number):
 @@UPDATE_CONFIG@@
 {
   "key": "ai_providers",
@@ -113,7 +127,7 @@ If no action is needed (just answering a question or giving advice), just reply 
     let reply = responseText;
     
 
-    const match = responseText.match(/@@(UPDATE_PLAN|LOG_FOOD|EDIT_FOOD|DELETE_FOOD|UPDATE_CONFIG)@@/);
+    const match = responseText.match(/@@(UPDATE_PLAN|LOG_FOOD|EDIT_FOOD|DELETE_FOOD|DELETE_WORKOUT|LOG_WORKOUT|UPDATE_CONFIG)@@/);
 
     if (match) {
         const action = match[1];
@@ -244,6 +258,81 @@ If no action is needed (just answering a question or giving advice), just reply 
                     reply += '\n\n*(I have deleted this food log!)*';
                 } else {
                     reply += '\n\n*(I could not find that food log to delete.)*';
+                }
+            } else if (action === 'DELETE_WORKOUT') {
+                const workoutLog = await prisma.workoutLog.findUnique({ where: { id: updateData.id } });
+                if (workoutLog) {
+                    await prisma.workoutLog.delete({ where: { id: updateData.id } });
+                    await prisma.activityLog.create({
+                        data: {
+                            action: 'WORKOUT_DELETED',
+                            details: JSON.stringify({ source: 'web_agent', id: updateData.id })
+                        }
+                    });
+                    reply += '\n\n*(I have automatically removed this workout log!)*';
+                } else {
+                    reply += '\n\n*(I could not find that workout log to delete.)*';
+                }
+            } else if (action === 'LOG_WORKOUT') {
+                let dLog = await prisma.dailyLog.findUnique({ where: { date: todayStr } });
+                if (!dLog) {
+                    dLog = await prisma.dailyLog.create({ data: { date: todayStr } });
+                }
+
+                let matchedWorkout = null;
+                const days = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                const currentDay = days[new Date().getDay()];
+                const todayPlan = plans.find(p => p.dayOfWeek === currentDay);
+                if (todayPlan && todayPlan.workouts) {
+                    if (updateData.workoutId) {
+                        matchedWorkout = todayPlan.workouts.find(w => w.id === updateData.workoutId);
+                    } else if (updateData.name) {
+                        matchedWorkout = todayPlan.workouts.find(w => 
+                            w.name.toLowerCase().includes(updateData.name.toLowerCase()) ||
+                            updateData.name.toLowerCase().includes(w.name.toLowerCase())
+                        );
+                    }
+                }
+
+                const finalName = matchedWorkout ? matchedWorkout.name : (updateData.name || 'Workout');
+                const finalReps = updateData.reps || (matchedWorkout ? matchedWorkout.reps : '1 session');
+                const workoutId = matchedWorkout ? matchedWorkout.id : (updateData.workoutId || null);
+
+                let existingLog = null;
+                if (workoutId) {
+                    existingLog = await prisma.workoutLog.findFirst({
+                        where: { dailyLogId: dLog.id, workoutId: workoutId }
+                    });
+                }
+
+                if (existingLog) {
+                    await prisma.workoutLog.update({
+                        where: { id: existingLog.id },
+                        data: { reps: finalReps }
+                    });
+                    await prisma.activityLog.create({
+                        data: {
+                            action: 'WORKOUT_UPDATED',
+                            details: JSON.stringify({ source: 'web_agent', name: finalName, reps: finalReps })
+                        }
+                    });
+                    reply += `\n\n*(I have automatically updated this workout: ${finalName} (${finalReps})!)*`;
+                } else {
+                    await prisma.workoutLog.create({
+                        data: {
+                            name: finalName,
+                            reps: finalReps,
+                            workoutId: workoutId,
+                            dailyLogId: dLog.id
+                        }
+                    });
+                    await prisma.activityLog.create({
+                        data: {
+                            action: 'WORKOUT_LOGGED',
+                            details: JSON.stringify({ source: 'web_agent', name: finalName, reps: finalReps })
+                        }
+                    });
+                    reply += `\n\n*(I have automatically logged this workout: ${finalName} (${finalReps})!)*`;
                 }
             } else if (action === 'UPDATE_CONFIG') {
                 const existing = await prisma.config.findUnique({ where: { key: updateData.key } });

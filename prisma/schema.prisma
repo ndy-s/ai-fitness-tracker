@@ -48,11 +48,12 @@ model MealSchedule {
 }
 
 model DailyLog {
-  id            String    @id @default(uuid())
-  date          String    @unique // e.g., "YYYY-MM-DD"
-  totalCalories Int       @default(0)
-  totalProtein  Int       @default(0)
+  id            String       @id @default(uuid())
+  date          String       @unique // e.g., "YYYY-MM-DD"
+  totalCalories Int          @default(0)
+  totalProtein  Int          @default(0)
   foodLogs      FoodLog[]
+  workoutLogs   WorkoutLog[]
 }
 
 model FoodLog {
@@ -64,6 +65,17 @@ model FoodLog {
   dailyLogId  String
   dailyLog    DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
 }
+
+model WorkoutLog {
+  id          String   @id @default(uuid())
+  time        DateTime @default(now())
+  workoutId   String?  // Reference to original Workout ID (null for custom workouts)
+  name        String
+  reps        String
+  dailyLogId  String
+  dailyLog    DailyLog @relation(fields: [dailyLogId], references: [id], onDelete: Cascade)
+}
+
 
 model AppConfig {
   key   String @id

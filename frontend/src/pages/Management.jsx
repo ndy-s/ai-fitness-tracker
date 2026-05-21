@@ -746,7 +746,7 @@ export default function Management() {
               </div>
 
               {/* Expanded Content */}
-              {isExpanded && !p.isRestDay && (
+              {isExpanded && (
                 <div style={{
                   display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0,
                   borderTop: '1px solid var(--border-color)',
@@ -754,21 +754,40 @@ export default function Management() {
                 }}>
                   {/* Workouts Column */}
                   <div style={{ padding: '20px 24px', borderRight: '1px solid var(--border-color)' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    {p.isRestDay ? (
+                      <div style={{
+                        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                        height: '100%', minHeight: 240, textAlign: 'center', padding: 20
+                      }}>
                         <div style={{
-                          width: 28, height: 28, borderRadius: 8,
-                          background: 'var(--accent-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          width: 48, height: 48, borderRadius: '50%',
+                          background: 'rgba(245, 158, 11, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          marginBottom: 14, color: 'var(--warning)'
                         }}>
-                          <Dumbbell size={14} color="var(--accent)" />
+                          <Moon size={22} />
                         </div>
-                        <div className="section-title" style={{ marginBottom: 0 }}>Workouts</div>
+                        <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4 }}>Rest & Recovery Day</div>
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 240, lineHeight: 1.6 }}>
+                          No workouts scheduled. Give your body time to rebuild and recharge while keeping your nutrition on track!
+                        </div>
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: 'var(--bg-primary)', color: 'var(--text-muted)' }}>
-                        {p.workouts.length}
-                      </span>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    ) : (
+                      <>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{
+                              width: 28, height: 28, borderRadius: 8,
+                              background: 'var(--accent-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center'
+                            }}>
+                              <Dumbbell size={14} color="var(--accent)" />
+                            </div>
+                            <div className="section-title" style={{ marginBottom: 0 }}>Workouts</div>
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: 'var(--bg-primary)', color: 'var(--text-muted)' }}>
+                            {p.workouts.length}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                       {p.workouts.map((w) => {
                         const isEditing = editingWorkoutId === w.id;
                         return (
@@ -853,6 +872,7 @@ export default function Management() {
                       }}>
                         <input type="text" className="chat-input" placeholder="Workout name" required value={newWorkout.name} onChange={e => setNewWorkout({...newWorkout, name: e.target.value})} style={{ fontSize: 13 }} />
                         <input type="text" className="chat-input" placeholder="Reps (e.g. 4x10)" required value={newWorkout.reps} onChange={e => setNewWorkout({...newWorkout, reps: e.target.value})} style={{ fontSize: 13 }} />
+                        <input type="text" className="chat-input" placeholder="Video URL (optional)" value={newWorkout.video} onChange={e => setNewWorkout({...newWorkout, video: e.target.value})} style={{ fontSize: 13 }} />
                         <div style={{ display: 'flex', gap: 8 }}>
                           <button type="submit" className="primary-btn" style={{ padding: '7px 14px', fontSize: 12 }}>Save</button>
                           <button type="button" onClick={() => setNewWorkout({...newWorkout, planId: null})} className="ghost-btn" style={{ padding: '7px 14px', fontSize: 12 }}>Cancel</button>
@@ -862,6 +882,8 @@ export default function Management() {
                       <button onClick={() => setNewWorkout({...newWorkout, planId: p.id})} className="ghost-btn" style={{ marginTop: 10, fontSize: 12, width: '100%' }}>
                         <Plus size={14} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Add Workout
                       </button>
+                    )}
+                      </>
                     )}
                   </div>
 

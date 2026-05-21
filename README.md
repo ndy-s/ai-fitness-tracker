@@ -15,16 +15,19 @@ What began as a simple tracker grew into a multi-provider fallback system with a
 
 The idea behind this project is very simple. I wanted an AI companion that tracks nutrition, manages schedules, and provides insightful summaries without needing to navigate complex menus.
 
-You can simply send a message on WhatsApp like:
+You can simply send a message on WhatsApp or Telegram like:
 > "I ate 2 eggs and a slice of bread"
+> "completed 2x10 push-ups today"
 
-The bot will automatically estimate the calories and protein, log it to your daily intake, and tell you your remaining macros. You can also send commands like `help`, `show my logs`, or `weekly progress` and it will instantly pull up the requested data. And if you make a mistake? Just say "edit #1 to 300cal 20g". It handles it seamlessly.
+The bot will automatically estimate the calories and protein or intelligently link your logged workout directly to your daily planned routine. It will even calculate your remaining macros! You can also send commands like `help`, `show my logs`, or `weekly progress` and it will instantly pull up the requested data. And if you make a mistake? Just say "edit #1 to 300cal 20g". It handles it seamlessly.
 
 ### Why It Works So Well?
 
 It uses a Multi-Provider AI Fallback system integrating Google Gemini 2.5 Flash and DeepSeek V4 Flash (via OpenRouter). This automatic round-robin fallback handles rate limits (HTTP 429) and high-demand 503 errors gracefully.
 
 The web UI provides a glassmorphism Light Theme dashboard built in React. You can view your 30-day history with dual-axis line charts and even chat with a global floating AI Agent to adjust your weekly workout or meal plans. And all of it runs locally, directly from your laptop.
+
+**Intelligent Check-ins**: The system features a background cron job that monitors your meal schedules. It uses a sliding 15-minute window to check if you've logged any food around your planned meal times. If you haven't, it triggers a Humane AI check-in, where the AI proactively messages you like a supportive coach, suggesting quick alternatives to hit your macros if you're too busy to cook!
 
 ## Quick Setup
 
@@ -82,14 +85,22 @@ http://localhost:5173
 > [!TIP]
 > The backend runs on port `3000` and the frontend runs on port `5173`. They start together thanks to the `concurrently` script I added in the `package.json`.
 
-### 4. Linking WhatsApp
+### 4. Linking WhatsApp / Telegram
 
-1. Open the frontend and navigate to the **WhatsApp** tab.
+You can link either WhatsApp or Telegram to act as your AI coach interface:
+
+**WhatsApp**:
+1. Open the frontend and navigate to the **Settings & Management** tab.
 2. Open WhatsApp on your secondary phone and scan the QR code displayed on the screen.
 3. Once connected, use your **primary phone** to send a message to the bot (e.g., "Hello").
 4. The bot will automatically register the first number that messages it as the "owner" and ignore all other numbers.
 
-You can now chat with the bot to log food, ask for weekly progress, edit logs, or use the Web AI Agent to modify your training plans!
+**Telegram**:
+1. Create a new bot via BotFather on Telegram and get the bot token.
+2. Paste the token into the **Settings & Management** page in the Web UI and select Telegram as your Active Platform.
+3. Send a message to your new bot. It will securely register your Telegram ID as the owner.
+
+You can now chat with the bot to log food, log your daily workouts, ask for weekly progress, edit logs, or use the Web AI Agent to modify your training plans!
 
 ## Under the Hood (Tech Stack)
 

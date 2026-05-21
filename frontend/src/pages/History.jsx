@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { Calendar, ChevronDown, ChevronUp, Flame, Beef, Trash2, TrendingUp } from 'lucide-react';
+import { Calendar, ChevronDown, ChevronUp, Flame, Beef, Trash2, TrendingUp, Dumbbell } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -57,6 +57,22 @@ export default function History() {
     }
   };
 
+  const handleDeleteWorkout = async (workoutLogId, e) => {
+    e.stopPropagation();
+    if (deletingId === workoutLogId) {
+      try {
+        await axios.delete(`${API_URL}/daily/workout/${workoutLogId}`);
+        await fetchHistory(trendRange);
+        setDeletingId(null);
+      } catch (err) {
+        console.error(err);
+      }
+    } else {
+      setDeletingId(workoutLogId);
+      setTimeout(() => setDeletingId(prev => prev === workoutLogId ? null : prev), 3000);
+    }
+  };
+
   const toggleDay = (date) => {
     setExpandedDay(expandedDay === date ? null : date);
     setDeletingId(null);
@@ -91,6 +107,7 @@ export default function History() {
   const avgCalories = history.length > 0 ? Math.round(history.reduce((acc, h) => acc + h.totalCalories, 0) / history.length) : 0;
   const avgProtein = history.length > 0 ? Math.round(history.reduce((acc, h) => acc + h.totalProtein, 0) / history.length) : 0;
   const totalDays = history.length;
+  const totalWorkouts = history.reduce((acc, h) => acc + (h.workoutLogs ? h.workoutLogs.length : 0), 0);
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -136,7 +153,7 @@ export default function History() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
 
           {/* Summary Stats */}
-          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 0 }}>
+          <div className="stats-grid" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 0 }}>
             <div className="stat-box">
               <div className="stat-label"><Flame size={14} /> Avg. Calories</div>
               <div className="stat-value">{avgCalories}</div>
@@ -146,6 +163,11 @@ export default function History() {
               <div className="stat-label"><Beef size={14} /> Avg. Protein</div>
               <div className="stat-value">{avgProtein}</div>
               <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>grams / day</div>
+            </div>
+            <div className="stat-box">
+              <div className="stat-label"><Dumbbell size={14} color="var(--accent)" /> Workouts Logged</div>
+              <div className="stat-value">{totalWorkouts}</div>
+              <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>completed exercises</div>
             </div>
             <div className="stat-box">
               <div className="stat-label"><Calendar size={14} /> Days Tracked</div>
@@ -318,6 +340,15 @@ export default function History() {
                           }}>
                             <Beef size={11} /> {log.totalProtein}g
                           </span>
+                          {log.workoutLogs && log.workoutLogs.length > 0 && (
+                            <span style={{
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                              fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 8,
+                              background: 'rgba(99, 102, 241, 0.08)', color: 'var(--accent)'
+                            }}>
+                              <Dumbbell size={11} /> {log.workoutLogs.length} logged
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -406,6 +437,75 @@ export default function History() {
                         </div>
                       ) : (
                         <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>No individual items recorded for this day.</div>
+                      )}
+
+                      {/* Workout Log Items */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 24, marginBottom: 14 }}>
+                        <div className="section-title" style={{ marginBottom: 0 }}>Workout Logs</div>
+                        {log.workoutLogs && (
+                          <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 10, background: 'var(--bg-primary)', color: 'var(--text-muted)' }}>
+                            {log.workoutLogs.length}
+                          </span>
+                        )}
+                      </div>
+                      {log.workoutLogs && log.workoutLogs.length > 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {log.workoutLogs.map((item, idx) => (
+                            <div key={item.id} style={{
+                              display: 'flex', alignItems: 'center', gap: 14,
+                              padding: '14px 16px', background: 'var(--bg-primary)',
+                              borderRadius: 'var(--radius-md)', border: '1px solid transparent',
+                              transition: 'all 0.2s'
+                            }}
+                              onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; e.currentTarget.style.background = '#f5f5ff'; }}
+                              onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; e.currentTarget.style.background = 'var(--bg-primary)'; }}
+                            >
+                              <div style={{
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                width: 32, height: 32, borderRadius: 10, flexShrink: 0,
+                                background: 'var(--accent-bg)', color: 'var(--accent)',
+                                fontWeight: 800, fontSize: 13
+                              }}>
+                                {idx + 1}
+                              </div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', marginBottom: 6, lineHeight: 1.4 }}>
+                                  {item.name}
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                                  <span style={{
+                                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                                    fontSize: 12, fontWeight: 600, padding: '3px 10px', borderRadius: 8,
+                                    background: 'rgba(99, 102, 241, 0.08)', color: 'var(--accent)'
+                                  }}>
+                                    <Dumbbell size={11} /> {item.reps}
+                                  </span>
+                                  <span style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                                    {new Date(item.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                </div>
+                              </div>
+                              <button
+                                onClick={(e) => handleDeleteWorkout(item.id, e)}
+                                title={deletingId === item.id ? 'Click again to confirm' : 'Delete this entry'}
+                                style={{
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                  width: 34, height: 34, borderRadius: 10, border: 'none',
+                                  cursor: 'pointer', transition: 'all 0.2s ease', flexShrink: 0,
+                                  background: deletingId === item.id ? 'var(--danger)' : 'transparent',
+                                  color: deletingId === item.id ? '#fff' : 'var(--text-muted)',
+                                  animation: deletingId === item.id ? 'pulse 1s infinite' : 'none',
+                                }}
+                                onMouseEnter={e => { if (deletingId !== item.id) { e.currentTarget.style.background = 'var(--danger-bg)'; e.currentTarget.style.color = 'var(--danger)'; }}}
+                                onMouseLeave={e => { if (deletingId !== item.id) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}}
+                              >
+                                <Trash2 size={15} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 14, color: 'var(--text-muted)' }}>No completed workouts recorded for this day.</div>
                       )}
                     </div>
                   )}

@@ -92,9 +92,9 @@ router.get('/daily/:date', async (req, res) => {
     try {
         const log = await prisma.dailyLog.findUnique({
             where: { date: req.params.date },
-            include: { foodLogs: true }
+            include: { foodLogs: true, workoutLogs: true }
         });
-        res.json(log || { totalCalories: 0, totalProtein: 0, foodLogs: [] });
+        res.json(log || { totalCalories: 0, totalProtein: 0, foodLogs: [], workoutLogs: [] });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -106,7 +106,7 @@ router.get('/history', async (req, res) => {
         const days = parseInt(req.query.days) || 30;
         const logs = await prisma.dailyLog.findMany({
             orderBy: { date: 'desc' },
-            include: { foodLogs: true },
+            include: { foodLogs: true, workoutLogs: true },
             take: days
         });
         res.json(logs);
@@ -385,18 +385,39 @@ router.put('/plans/:planId/target', async (req, res) => {
 
 router.post('/daily/food', async (req, res) => {
     try {
-        const { date, description, calories, protein } = req.body;
+        const { date, description, calories, protein, useAi } = req.body;
         
         let dailyLog = await prisma.dailyLog.findUnique({ where: { date } });
         if (!dailyLog) {
             dailyLog = await prisma.dailyLog.create({ data: { date } });
         }
 
+        let calVal, proVal, descVal;
+        if (useAi) {
+            try {
+                const { estimateCalories } = require('./ai');
+                const aiResult = await estimateCalories(description);
+                calVal = parseInt(aiResult.calories) || 0;
+                proVal = parseInt(aiResult.protein) || 0;
+                descVal = aiResult.description || description;
+            } catch (aiErr) {
+                console.error("AI estimation failed:", aiErr);
+                const cleanMsg = aiErr.message.endsWith('.') ? aiErr.message : (aiErr.message + '.');
+                return res.status(400).json({ 
+                    error: `AI Mode failed: ${cleanMsg} Ensure your AI API keys are configured correctly under Settings.` 
+                });
+            }
+        } else {
+            calVal = parseInt(calories) || 0;
+            proVal = parseInt(protein) || 0;
+            descVal = description;
+        }
+
         const foodLog = await prisma.foodLog.create({
             data: {
-                description,
-                calories: parseInt(calories),
-                protein: parseInt(protein),
+                description: descVal,
+                calories: calVal,
+                protein: proVal,
                 dailyLogId: dailyLog.id
             }
         });
@@ -404,19 +425,96 @@ router.post('/daily/food', async (req, res) => {
         await prisma.dailyLog.update({
             where: { id: dailyLog.id },
             data: {
-                totalCalories: { increment: parseInt(calories) },
-                totalProtein: { increment: parseInt(protein) }
+                totalCalories: { increment: calVal },
+                totalProtein: { increment: proVal }
             }
         });
 
         await prisma.activityLog.create({
             data: {
                 action: 'FOOD_LOGGED',
-                details: JSON.stringify({ source: 'web_ui', description, calories })
+                details: JSON.stringify({ source: 'web_ui', description: descVal, calories: calVal })
             }
         });
 
         res.json(foodLog);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+router.post('/daily/workout', async (req, res) => {
+    try {
+        const { date, name, reps, workoutId } = req.body;
+        
+        let dailyLog = await prisma.dailyLog.findUnique({ where: { date } });
+        if (!dailyLog) {
+            dailyLog = await prisma.dailyLog.create({ data: { date } });
+        }
+
+        const workoutLog = await prisma.workoutLog.create({
+            data: {
+                name,
+                reps,
+                workoutId: workoutId || null,
+                dailyLogId: dailyLog.id
+            }
+        });
+
+        await prisma.activityLog.create({
+            data: {
+                action: 'WORKOUT_LOGGED',
+                details: JSON.stringify({ source: 'web_ui', name, reps })
+            }
+        });
+
+        res.json(workoutLog);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+router.delete('/daily/workout/:id', async (req, res) => {
+    try {
+        const workoutLog = await prisma.workoutLog.findUnique({ where: { id: req.params.id } });
+        if (!workoutLog) {
+            return res.status(404).json({ error: 'Workout log not found' });
+        }
+
+        await prisma.workoutLog.delete({ where: { id: req.params.id } });
+
+        await prisma.activityLog.create({
+            data: {
+                action: 'WORKOUT_DELETED',
+                details: JSON.stringify({ source: 'web_ui', id: req.params.id })
+            }
+        });
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+router.put('/daily/workout/:id', async (req, res) => {
+    try {
+        const { reps } = req.body;
+        const workoutLog = await prisma.workoutLog.update({
+            where: { id: req.params.id },
+            data: { reps }
+        });
+
+        await prisma.activityLog.create({
+            data: {
+                action: 'WORKOUT_UPDATED',
+                details: JSON.stringify({ source: 'web_ui', id: req.params.id, reps })
+            }
+        });
+
+        res.json(workoutLog);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
