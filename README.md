@@ -1,7 +1,7 @@
 # AI Fitness Tracker
 <p>
   <blockquote style="display: inline; font-size: 1.2em; margin: 0;">
-    "A full-stack, dynamic training and nutrition planner."
+    "An assistant that helps you track your fitness progress and stay on track."
   </blockquote>
 </p>
 
