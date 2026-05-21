@@ -3,27 +3,39 @@ const axios = require('axios');
 const { PrismaClient } = require('@prisma/client');
 
 const prisma = new PrismaClient();
-const ai = new GoogleGenAI({});
 
 async function getProviders() {
     const config = await prisma.appConfig.findUnique({ where: { key: 'ai_providers' } });
+    let providers = [];
     if (config && config.value) {
         try {
-            return JSON.parse(config.value);
+            providers = JSON.parse(config.value);
         } catch {
-            return [config.value];
+            providers = [config.value];
         }
+    } else {
+        // Fallback: check old single provider key
+        const legacy = await prisma.appConfig.findUnique({ where: { key: 'ai_provider' } });
+        if (legacy && legacy.value) providers = [legacy.value];
+        else providers = ['gemini'];
     }
-    // Fallback: check old single provider key
-    const legacy = await prisma.appConfig.findUnique({ where: { key: 'ai_provider' } });
-    if (legacy && legacy.value) return [legacy.value];
-    return ['gemini'];
+
+    const geminiKey = await prisma.appConfig.findUnique({ where: { key: 'gemini_api_key' } });
+    const openrouterKey = await prisma.appConfig.findUnique({ where: { key: 'openrouter_api_key' } });
+
+    const activeProviders = [];
+    if (providers.includes('gemini') && geminiKey && geminiKey.value) activeProviders.push('gemini');
+    if (providers.includes('deepseek') && openrouterKey && openrouterKey.value) activeProviders.push('deepseek');
+    
+    return activeProviders;
 }
 
 async function callGemini(prompt) {
-    if (!process.env.GEMINI_API_KEY) {
-        throw new Error('GEMINI_API_KEY is not set');
+    const geminiKey = await prisma.appConfig.findUnique({ where: { key: 'gemini_api_key' } });
+    if (!geminiKey || !geminiKey.value) {
+        throw new Error('GEMINI_API_KEY is not set in configuration');
     }
+    const ai = new GoogleGenAI({ apiKey: geminiKey.value });
     const response = await ai.models.generateContent({
         model: 'gemini-2.5-flash',
         contents: prompt,
@@ -34,15 +46,16 @@ async function callGemini(prompt) {
 }
 
 async function callDeepSeek(prompt) {
-    if (!process.env.OPENROUTER_API_KEY) {
-        throw new Error('OPENROUTER_API_KEY is not set');
+    const openrouterKey = await prisma.appConfig.findUnique({ where: { key: 'openrouter_api_key' } });
+    if (!openrouterKey || !openrouterKey.value) {
+        throw new Error('OPENROUTER_API_KEY is not set in configuration');
     }
     const response = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
         model: 'deepseek/deepseek-v4-flash:free',
         messages: [{ role: 'user', content: prompt }]
     }, {
         headers: {
-            'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            'Authorization': `Bearer ${openrouterKey.value}`,
             'Content-Type': 'application/json',
             'X-OpenRouter-Title': 'AI Fitness Tracker'
         }
@@ -69,6 +82,10 @@ const PROVIDER_MAP = {
 async function callWithRoundRobin(prompt) {
     const providers = await getProviders();
     let lastError = null;
+    
+    if (providers.length === 0) {
+        throw new Error('No AI providers configured or missing API keys.');
+    }
 
     for (const provider of providers) {
         const fn = PROVIDER_MAP[provider];
@@ -99,9 +116,11 @@ async function callWithRoundRobin(prompt) {
 }
 
 async function callGeminiChat(messages) {
-    if (!process.env.GEMINI_API_KEY) {
-        throw new Error('GEMINI_API_KEY is not set');
+    const geminiKey = await prisma.appConfig.findUnique({ where: { key: 'gemini_api_key' } });
+    if (!geminiKey || !geminiKey.value) {
+        throw new Error('GEMINI_API_KEY is not set in configuration');
     }
+    const ai = new GoogleGenAI({ apiKey: geminiKey.value });
     const contents = messages.map(m => ({
         role: m.role === 'assistant' ? 'model' : m.role,
         parts: [{ text: m.content }]
@@ -114,13 +133,16 @@ async function callGeminiChat(messages) {
 }
 
 async function callDeepSeekChat(messages) {
-    if (!process.env.OPENROUTER_API_KEY) throw new Error('OPENROUTER_API_KEY missing');
+    const openrouterKey = await prisma.appConfig.findUnique({ where: { key: 'openrouter_api_key' } });
+    if (!openrouterKey || !openrouterKey.value) {
+        throw new Error('OPENROUTER_API_KEY is not set in configuration');
+    }
     const response = await axios.post('https://openrouter.ai/api/v1/chat/completions', {
         model: 'deepseek/deepseek-v4-flash:free',
         messages: messages.map(m => ({ role: m.role === 'model' ? 'assistant' : m.role, content: m.content }))
     }, {
         headers: {
-            'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            'Authorization': `Bearer ${openrouterKey.value}`,
             'Content-Type': 'application/json',
             'X-OpenRouter-Title': 'AI Fitness Tracker'
         }
@@ -145,6 +167,10 @@ const CHAT_PROVIDER_MAP = {
 async function callChatWithRoundRobin(messages) {
     const providers = await getProviders();
     let lastError = null;
+
+    if (providers.length === 0) {
+        throw new Error('No AI providers configured or missing API keys.');
+    }
 
     for (const provider of providers) {
         const fn = CHAT_PROVIDER_MAP[provider];

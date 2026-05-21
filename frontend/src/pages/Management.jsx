@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Trash2, Plus, Save, Dumbbell, UtensilsCrossed, CheckCircle, Zap, Sparkles, ChevronDown, Moon, Flame, MessageSquare, Send, Settings, Wifi, WifiOff, QrCode, Loader, LogOut, Key, ExternalLink } from 'lucide-react';
+import { Trash2, Edit2, Plus, Save, Dumbbell, UtensilsCrossed, CheckCircle, Zap, Sparkles, ChevronDown, Moon, Flame, MessageSquare, Send, Settings, Wifi, WifiOff, QrCode, Loader, LogOut, Key, ExternalLink, Eye, EyeOff } from 'lucide-react';
 
 const API_URL = import.meta.env.VITE_API_URL;
 if (!API_URL) throw new Error("VITE_API_URL is missing in environment variables");
@@ -11,11 +11,25 @@ export default function Management() {
   const [providerInput, setProviderInput] = useState([]);
   const [ownerJidInput, setOwnerJidInput] = useState('');
   const [ownerTelegramInput, setOwnerTelegramInput] = useState('');
+  const [geminiApiKey, setGeminiApiKey] = useState('');
+  const [openRouterApiKey, setOpenRouterApiKey] = useState('');
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
+  const [showOpenRouterKey, setShowOpenRouterKey] = useState(false);
   const [newWorkout, setNewWorkout] = useState({ planId: null, name: '', reps: '', video: '' });
+
   const [newMeal, setNewMeal] = useState({ planId: null, time: '', title: '', items: '', kcal: '', protein: '', applyToAll: false });
   const [configSaved, setConfigSaved] = useState(false);
   const [expandedDay, setExpandedDay] = useState(null);
   const [botPlatform, setBotPlatform] = useState('whatsapp');
+
+  const [editingWorkoutId, setEditingWorkoutId] = useState(null);
+  const [editWorkoutData, setEditWorkoutData] = useState({ name: '', reps: '', video: '' });
+
+  const [editingMealId, setEditingMealId] = useState(null);
+  const [editMealData, setEditMealData] = useState({ time: '', title: '', items: '', kcal: '', protein: '' });
+
+  const [editingTargetPlanId, setEditingTargetPlanId] = useState(null);
+  const [editTargetData, setEditTargetData] = useState({ calories: '', protein: '', carbs: '', fats: '' });
 
 
   const [waStatus, setWaStatus] = useState('loading');
@@ -41,6 +55,8 @@ export default function Management() {
       }
       setOwnerJidInput(configRes.data.owner_jid || '');
       setOwnerTelegramInput(configRes.data.owner_telegram_id || '');
+      setGeminiApiKey(configRes.data.gemini_api_key || '');
+      setOpenRouterApiKey(configRes.data.openrouter_api_key || '');
       setBotPlatform(configRes.data.bot_platform || 'whatsapp');
     } catch (err) {
       console.error(err);
@@ -120,6 +136,8 @@ export default function Management() {
         axios.put(`${API_URL}/config`, { key: 'ai_providers', value: JSON.stringify(providerInput) }),
         axios.put(`${API_URL}/config`, { key: 'owner_jid', value: jid }),
         axios.put(`${API_URL}/config`, { key: 'owner_telegram_id', value: ownerTelegramInput }),
+        axios.put(`${API_URL}/config`, { key: 'gemini_api_key', value: geminiApiKey }),
+        axios.put(`${API_URL}/config`, { key: 'openrouter_api_key', value: openRouterApiKey }),
         axios.put(`${API_URL}/config`, { key: 'bot_platform', value: botPlatform })
       ]);
       
@@ -174,6 +192,62 @@ export default function Management() {
   const deleteMeal = async (id) => {
     if (!confirm('Delete this meal?')) return;
     try { await axios.delete(`${API_URL}/meals/${id}`); fetchData(); } catch (err) { console.error(err); }
+  };
+
+  const startEditWorkout = (workout) => {
+    setEditingWorkoutId(workout.id);
+    setEditWorkoutData({ name: workout.name, reps: workout.reps, video: workout.video || '' });
+  };
+
+  const saveWorkoutEdit = async (e, id) => {
+    e.preventDefault();
+    try {
+      await axios.put(`${API_URL}/workouts/${id}`, editWorkoutData);
+      setEditingWorkoutId(null);
+      fetchData();
+    } catch (err) { console.error(err); }
+  };
+
+  const startEditMeal = (meal) => {
+    setEditingMealId(meal.id);
+    let parsedItems = [];
+    try { parsedItems = JSON.parse(meal.items); } catch(e) {}
+    setEditMealData({
+      time: meal.time,
+      title: meal.title,
+      items: Array.isArray(parsedItems) ? parsedItems.join(', ') : meal.items,
+      kcal: meal.kcal,
+      protein: meal.protein
+    });
+  };
+
+  const saveMealEdit = async (e, id) => {
+    e.preventDefault();
+    try {
+      const itemsArray = editMealData.items.split(',').map(s => s.trim());
+      await axios.put(`${API_URL}/meals/${id}`, { ...editMealData, items: itemsArray });
+      setEditingMealId(null);
+      fetchData();
+    } catch (err) { console.error(err); }
+  };
+
+  const startEditTarget = (planId, target) => {
+    setEditingTargetPlanId(planId);
+    setEditTargetData({
+      calories: target?.calories || '',
+      protein: target?.protein || '',
+      carbs: target?.carbs || '',
+      fats: target?.fats || ''
+    });
+  };
+
+  const saveTargetEdit = async (e, planId) => {
+    e.preventDefault();
+    try {
+      await axios.put(`${API_URL}/plans/${planId}/target`, editTargetData);
+      setEditingTargetPlanId(null);
+      fetchData();
+    } catch (err) { console.error(err); }
   };
 
   const getDayEmoji = (dayOfWeek) => {
@@ -239,40 +313,118 @@ export default function Management() {
           <div style={sectionLabel}>AI Providers</div>
           <div style={{ display: 'flex', gap: 12 }}>
             {[
-              { value: 'gemini', label: 'Google Gemini', sublabel: 'Fast & reliable', icon: <Sparkles size={15} />, gradient: 'linear-gradient(135deg, #4285f4, #34a853)' },
-              { value: 'deepseek', label: 'DeepSeek V4', sublabel: 'via OpenRouter', icon: <Zap size={15} />, gradient: 'linear-gradient(135deg, #6366f1, #8b5cf6)' }
-            ].map(p => (
-              <div key={p.value} onClick={() => toggleProvider(p.value)} style={{
-                flex: 1, display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer',
+              { value: 'gemini', label: 'Google Gemini', sublabel: 'Fast & reliable', icon: <Sparkles size={15} />, gradient: 'linear-gradient(135deg, #4285f4, #34a853)', keyField: geminiApiKey },
+              { value: 'deepseek', label: 'DeepSeek V4', sublabel: 'via OpenRouter', icon: <Zap size={15} />, gradient: 'linear-gradient(135deg, #6366f1, #8b5cf6)', keyField: openRouterApiKey }
+            ].map(p => {
+              const hasKey = !!(p.keyField && p.keyField.trim());
+              const isSelected = providerInput.includes(p.value);
+              return (
+              <div key={p.value} onClick={() => {
+                if (!hasKey) return;
+                toggleProvider(p.value);
+              }} style={{
+                flex: 1, display: 'flex', alignItems: 'center', gap: 12,
+                cursor: hasKey ? 'pointer' : 'not-allowed',
                 padding: '14px 16px', borderRadius: 'var(--radius-md)',
-                background: providerInput.includes(p.value) ? 'var(--accent-bg)' : 'var(--bg-primary)',
-                border: `1.5px solid ${providerInput.includes(p.value) ? 'var(--accent-border)' : 'var(--border-color)'}`,
+                background: !hasKey ? 'var(--bg-secondary)' : isSelected ? 'var(--accent-bg)' : 'var(--bg-primary)',
+                border: `1.5px solid ${!hasKey ? 'var(--border-color)' : isSelected ? 'var(--accent-border)' : 'var(--border-color)'}`,
+                opacity: hasKey ? 1 : 0.55,
                 transition: 'all 0.2s ease'
               }}>
                 <div style={{
                   width: 18, height: 18, borderRadius: 5, flexShrink: 0,
-                  border: `2px solid ${providerInput.includes(p.value) ? 'var(--accent)' : 'var(--text-muted)'}`,
-                  background: providerInput.includes(p.value) ? 'var(--accent)' : 'transparent',
+                  border: `2px solid ${isSelected && hasKey ? 'var(--accent)' : 'var(--text-muted)'}`,
+                  background: isSelected && hasKey ? 'var(--accent)' : 'transparent',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'all 0.15s'
                 }}>
-                  {providerInput.includes(p.value) && <CheckCircle size={10} color="#fff" />}
+                  {isSelected && hasKey && <CheckCircle size={10} color="#fff" />}
                 </div>
                 <div style={{
                   width: 30, height: 30, borderRadius: 8, flexShrink: 0,
-                  background: providerInput.includes(p.value) ? p.gradient : 'var(--bg-secondary)',
+                  background: isSelected && hasKey ? p.gradient : 'var(--bg-secondary)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   transition: 'all 0.15s',
-                  border: providerInput.includes(p.value) ? 'none' : '1px solid var(--border-color)'
+                  border: isSelected && hasKey ? 'none' : '1px solid var(--border-color)'
                 }}>
-                  <span style={{ color: providerInput.includes(p.value) ? '#fff' : 'var(--text-muted)' }}>{p.icon}</span>
+                  <span style={{ color: isSelected && hasKey ? '#fff' : 'var(--text-muted)' }}>{p.icon}</span>
                 </div>
                 <div>
-                  <div style={{ fontWeight: 600, fontSize: 13, color: providerInput.includes(p.value) ? 'var(--text-primary)' : 'var(--text-secondary)' }}>{p.label}</div>
-                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.sublabel}</div>
+                  <div style={{ fontWeight: 600, fontSize: 13, color: hasKey ? (isSelected ? 'var(--text-primary)' : 'var(--text-secondary)') : 'var(--text-muted)' }}>{p.label}</div>
+                  {hasKey ? (
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{p.sublabel}</div>
+                  ) : (
+                    <div style={{ fontSize: 11, color: 'var(--danger)', fontWeight: 500 }}>No API key configured</div>
+                  )}
                 </div>
               </div>
-            ))}
+              );
+            })}
+          </div>
+
+          <div style={divider} />
+
+          {/* ── Section 1b: API Keys ────────────────────── */}
+          <div style={sectionLabel}>API Keys</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div>
+              <label style={fieldLabel}>Google Gemini API Key</label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showGeminiKey ? "text" : "password"}
+                  value={geminiApiKey}
+                  onChange={e => setGeminiApiKey(e.target.value)}
+                  placeholder="AIza..."
+                  className="chat-input"
+                  style={{
+                    width: '100%', padding: '11px 40px 11px 14px', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
+                    fontSize: 13, color: 'var(--text-primary)',
+                    fontFamily: "'SF Mono', 'Fira Code', monospace", fontWeight: 500
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowGeminiKey(!showGeminiKey)}
+                  style={{
+                    position: 'absolute', right: 12, background: 'none', border: 'none',
+                    color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                    padding: 0
+                  }}
+                >
+                  {showGeminiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+            <div>
+              <label style={fieldLabel}>OpenRouter API Key (DeepSeek)</label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type={showOpenRouterKey ? "text" : "password"}
+                  value={openRouterApiKey}
+                  onChange={e => setOpenRouterApiKey(e.target.value)}
+                  placeholder="sk-or-v1-..."
+                  className="chat-input"
+                  style={{
+                    width: '100%', padding: '11px 40px 11px 14px', borderRadius: 'var(--radius-sm)',
+                    background: 'var(--bg-primary)', border: '1px solid var(--border-color)',
+                    fontSize: 13, color: 'var(--text-primary)',
+                    fontFamily: "'SF Mono', 'Fira Code', monospace", fontWeight: 500
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowOpenRouterKey(!showOpenRouterKey)}
+                  style={{
+                    position: 'absolute', right: 12, background: 'none', border: 'none',
+                    color: 'var(--text-muted)', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                    padding: 0
+                  }}
+                >
+                  {showOpenRouterKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
           </div>
 
           <div style={divider} />
@@ -617,31 +769,79 @@ export default function Management() {
                       </span>
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                      {p.workouts.map((w) => (
-                        <div key={w.id} style={{
-                          display: 'flex', alignItems: 'center', gap: 12,
-                          padding: '12px 14px', background: 'var(--bg-primary)',
-                          borderRadius: 'var(--radius-md)', border: '1px solid transparent',
-                          transition: 'all 0.2s'
-                        }}
-                          onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; }}
-                          onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; }}
-                        >
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', marginBottom: 2 }}>{w.name}</div>
-                            <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{w.reps}</div>
-                          </div>
-                          <button onClick={() => deleteWorkout(w.id)} style={{
-                            background: 'transparent', border: 'none', color: 'var(--text-muted)',
-                            cursor: 'pointer', padding: 6, borderRadius: 8, transition: 'all 0.2s', opacity: 0.5
+                      {p.workouts.map((w) => {
+                        const isEditing = editingWorkoutId === w.id;
+                        return (
+                          <div key={w.id} style={{
+                            display: 'flex', flexDirection: isEditing ? 'column' : 'row', alignItems: isEditing ? 'stretch' : 'center', gap: 12,
+                            padding: '12px 14px', background: 'var(--bg-primary)',
+                            borderRadius: 'var(--radius-md)', border: isEditing ? '1px dashed var(--accent-border)' : '1px solid transparent',
+                            transition: 'all 0.2s'
                           }}
-                            onMouseEnter={e => { e.currentTarget.style.background = 'var(--danger-bg)'; e.currentTarget.style.color = 'var(--danger)'; e.currentTarget.style.opacity = '1'; }}
-                            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.opacity = '0.5'; }}
+                            onMouseEnter={e => { if (!isEditing) e.currentTarget.style.borderColor = 'var(--border-color)'; }}
+                            onMouseLeave={e => { if (!isEditing) e.currentTarget.style.borderColor = 'transparent'; }}
                           >
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      ))}
+                            {isEditing ? (
+                              <form onSubmit={(e) => saveWorkoutEdit(e, w.id)} style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                                <input type="text" className="chat-input" placeholder="Workout name" required value={editWorkoutData.name} onChange={e => setEditWorkoutData({...editWorkoutData, name: e.target.value})} style={{ fontSize: 13 }} />
+                                <input type="text" className="chat-input" placeholder="Reps (e.g. 4x10)" required value={editWorkoutData.reps} onChange={e => setEditWorkoutData({...editWorkoutData, reps: e.target.value})} style={{ fontSize: 13 }} />
+                                <input type="text" className="chat-input" placeholder="Video URL (optional)" value={editWorkoutData.video} onChange={e => setEditWorkoutData({...editWorkoutData, video: e.target.value})} style={{ fontSize: 13 }} />
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  <button type="submit" className="primary-btn" style={{ padding: '5px 12px', fontSize: 12 }}>Save</button>
+                                  <button type="button" onClick={() => setEditingWorkoutId(null)} className="ghost-btn" style={{ padding: '5px 12px', fontSize: 12 }}>Cancel</button>
+                                </div>
+                              </form>
+                            ) : (
+                              <>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', marginBottom: 2 }}>{w.name}</div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                    <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{w.reps}</span>
+                                    {w.video && w.video.trim() !== '' && (
+                                      <a
+                                        href={w.video}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        style={{
+                                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                                          fontSize: 11, color: 'var(--accent)', fontWeight: 500,
+                                          textDecoration: 'none', background: 'var(--accent-bg)',
+                                          padding: '2px 8px', borderRadius: 12, transition: 'all 0.2s'
+                                        }}
+                                        onMouseEnter={e => { e.currentTarget.style.filter = 'brightness(0.95)'; }}
+                                        onMouseLeave={e => { e.currentTarget.style.filter = 'none'; }}
+                                      >
+                                        <span>Watch Video</span>
+                                        <ExternalLink size={10} />
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: 4 }}>
+                                  <button onClick={() => startEditWorkout(w)} style={{
+                                    background: 'transparent', border: 'none', color: 'var(--text-muted)',
+                                    cursor: 'pointer', padding: 6, borderRadius: 8, transition: 'all 0.2s', opacity: 0.5
+                                  }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-bg)'; e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.opacity = '1'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.opacity = '0.5'; }}
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button onClick={() => deleteWorkout(w.id)} style={{
+                                    background: 'transparent', border: 'none', color: 'var(--text-muted)',
+                                    cursor: 'pointer', padding: 6, borderRadius: 8, transition: 'all 0.2s', opacity: 0.5
+                                  }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--danger-bg)'; e.currentTarget.style.color = 'var(--danger)'; e.currentTarget.style.opacity = '1'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.opacity = '0.5'; }}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
 
                     {newWorkout.planId === p.id ? (
@@ -685,52 +885,132 @@ export default function Management() {
                       {p.mealSchedules.map(m => {
                         let parsedItems = [];
                         try { parsedItems = JSON.parse(m.items); } catch(e) {}
+                        const isEditing = editingMealId === m.id;
                         return (
                           <div key={m.id} style={{
-                            display: 'flex', alignItems: 'flex-start', gap: 12,
+                            display: 'flex', flexDirection: isEditing ? 'column' : 'row', alignItems: isEditing ? 'stretch' : 'flex-start', gap: 12,
                             padding: '12px 14px', background: 'var(--bg-primary)',
-                            borderRadius: 'var(--radius-md)', border: '1px solid transparent',
+                            borderRadius: 'var(--radius-md)', border: isEditing ? '1px dashed var(--success-border)' : '1px solid transparent',
                             transition: 'all 0.2s'
                           }}
-                            onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--border-color)'; }}
-                            onMouseLeave={e => { e.currentTarget.style.borderColor = 'transparent'; }}
+                            onMouseEnter={e => { if (!isEditing) e.currentTarget.style.borderColor = 'var(--border-color)'; }}
+                            onMouseLeave={e => { if (!isEditing) e.currentTarget.style.borderColor = 'transparent'; }}
                           >
-                            <div style={{
-                              padding: '4px 8px', borderRadius: 6,
-                              background: 'var(--accent-bg)', color: 'var(--accent)',
-                              fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 2
-                            }}>
-                              {m.time}
-                            </div>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4 }}>{m.title}</div>
-                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
-                                {parsedItems.map((item, idx) => (
-                                  <span key={idx} style={{
-                                    fontSize: 11, padding: '2px 8px', borderRadius: 5,
-                                    background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
-                                    color: 'var(--text-secondary)'
-                                  }}>{item}</span>
-                                ))}
-                              </div>
-                              <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 8 }}>
-                                <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Flame size={10} /> {m.kcal}</span>
-                                <span>{m.protein}</span>
-                              </div>
-                            </div>
-                            <button onClick={() => deleteMeal(m.id)} style={{
-                              background: 'transparent', border: 'none', color: 'var(--text-muted)',
-                              cursor: 'pointer', padding: 6, borderRadius: 8, transition: 'all 0.2s', opacity: 0.5
-                            }}
-                              onMouseEnter={e => { e.currentTarget.style.background = 'var(--danger-bg)'; e.currentTarget.style.color = 'var(--danger)'; e.currentTarget.style.opacity = '1'; }}
-                              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.opacity = '0.5'; }}
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                            {isEditing ? (
+                              <form onSubmit={(e) => saveMealEdit(e, m.id)} style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  <input type="text" className="chat-input" placeholder="Time (e.g. 08:00)" required value={editMealData.time} onChange={e => setEditMealData({...editMealData, time: e.target.value})} style={{ fontSize: 13, flex: '0 0 90px' }} />
+                                  <input type="text" className="chat-input" placeholder="Meal Title" required value={editMealData.title} onChange={e => setEditMealData({...editMealData, title: e.target.value})} style={{ fontSize: 13 }} />
+                                </div>
+                                <input type="text" className="chat-input" placeholder="Items (comma separated)" required value={editMealData.items} onChange={e => setEditMealData({...editMealData, items: e.target.value})} style={{ fontSize: 13 }} />
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  <input type="text" className="chat-input" placeholder="Calories" required value={editMealData.kcal} onChange={e => setEditMealData({...editMealData, kcal: e.target.value})} style={{ fontSize: 13 }} />
+                                  <input type="text" className="chat-input" placeholder="Protein" required value={editMealData.protein} onChange={e => setEditMealData({...editMealData, protein: e.target.value})} style={{ fontSize: 13 }} />
+                                </div>
+                                <div style={{ display: 'flex', gap: 8 }}>
+                                  <button type="submit" className="primary-btn" style={{ padding: '5px 12px', fontSize: 12 }}>Save</button>
+                                  <button type="button" onClick={() => setEditingMealId(null)} className="ghost-btn" style={{ padding: '5px 12px', fontSize: 12 }}>Cancel</button>
+                                </div>
+                              </form>
+                            ) : (
+                              <>
+                                <div style={{
+                                  padding: '4px 8px', borderRadius: 6,
+                                  background: 'var(--accent-bg)', color: 'var(--accent)',
+                                  fontSize: 11, fontWeight: 700, flexShrink: 0, marginTop: 2
+                                }}>
+                                  {m.time}
+                                </div>
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                  <div style={{ fontWeight: 600, fontSize: 14, color: 'var(--text-primary)', marginBottom: 4 }}>{m.title}</div>
+                                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginBottom: 4 }}>
+                                    {parsedItems.map((item, idx) => (
+                                      <span key={idx} style={{
+                                        fontSize: 11, padding: '2px 8px', borderRadius: 5,
+                                        background: 'var(--bg-secondary)', border: '1px solid var(--border-color)',
+                                        color: 'var(--text-secondary)'
+                                      }}>{item}</span>
+                                    ))}
+                                  </div>
+                                  <div style={{ fontSize: 11, color: 'var(--text-muted)', display: 'flex', gap: 8 }}>
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}><Flame size={10} /> {m.kcal}</span>
+                                    <span>{m.protein}</span>
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', gap: 4 }}>
+                                  <button onClick={() => startEditMeal(m)} style={{
+                                    background: 'transparent', border: 'none', color: 'var(--text-muted)',
+                                    cursor: 'pointer', padding: 6, borderRadius: 8, transition: 'all 0.2s', opacity: 0.5
+                                  }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--accent-bg)'; e.currentTarget.style.color = 'var(--accent)'; e.currentTarget.style.opacity = '1'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.opacity = '0.5'; }}
+                                  >
+                                    <Edit2 size={14} />
+                                  </button>
+                                  <button onClick={() => deleteMeal(m.id)} style={{
+                                    background: 'transparent', border: 'none', color: 'var(--text-muted)',
+                                    cursor: 'pointer', padding: 6, borderRadius: 8, transition: 'all 0.2s', opacity: 0.5
+                                  }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = 'var(--danger-bg)'; e.currentTarget.style.color = 'var(--danger)'; e.currentTarget.style.opacity = '1'; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.opacity = '0.5'; }}
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </div>
+                              </>
+                            )}
                           </div>
                         );
                       })}
                     </div>
+
+                    {/* Daily Nutrition Targets Panel */}
+                    {editingTargetPlanId === p.id ? (
+                      <form onSubmit={(e) => saveTargetEdit(e, p.id)} style={{
+                        marginTop: 16, marginBottom: 16, padding: 14, background: 'var(--bg-primary)', 
+                        borderRadius: 'var(--radius-md)', border: '1px dashed var(--accent-border)',
+                        display: 'flex', flexDirection: 'column', gap: 8,
+                        animation: 'fadeIn 0.2s ease'
+                      }}>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)' }}>Daily Nutrition Targets</div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                          <input type="text" className="chat-input" placeholder="Calories (e.g. 2650 kcal)" value={editTargetData.calories} onChange={e => setEditTargetData({...editTargetData, calories: e.target.value})} required style={{ fontSize: 12 }} />
+                          <input type="text" className="chat-input" placeholder="Protein (e.g. 145g)" value={editTargetData.protein} onChange={e => setEditTargetData({...editTargetData, protein: e.target.value})} required style={{ fontSize: 12 }} />
+                          <input type="text" className="chat-input" placeholder="Carbs (e.g. 320g)" value={editTargetData.carbs} onChange={e => setEditTargetData({...editTargetData, carbs: e.target.value})} required style={{ fontSize: 12 }} />
+                          <input type="text" className="chat-input" placeholder="Fats (e.g. 70g)" value={editTargetData.fats} onChange={e => setEditTargetData({...editTargetData, fats: e.target.value})} required style={{ fontSize: 12 }} />
+                        </div>
+                        <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+                          <button type="submit" className="primary-btn" style={{ padding: '5px 12px', fontSize: 12 }}>Save Targets</button>
+                          <button type="button" onClick={() => setEditingTargetPlanId(null)} className="ghost-btn" style={{ padding: '5px 12px', fontSize: 12 }}>Cancel</button>
+                        </div>
+                      </form>
+                    ) : (
+                      <div style={{
+                        marginTop: 16, marginBottom: 16, padding: '12px 14px', background: 'var(--bg-primary)', 
+                        borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                          <div style={{ fontWeight: 600, fontSize: 13, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                            <Flame size={12} color="var(--accent)" /> Daily Target Nutrition
+                          </div>
+                          <button onClick={() => startEditTarget(p.id, p.mealTarget)} className="ghost-btn" style={{ padding: '3px 8px', fontSize: 11 }}>
+                            {p.mealTarget ? 'Edit Targets' : 'Set Targets'}
+                          </button>
+                        </div>
+                        {p.mealTarget ? (
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px 12px', fontSize: 12, color: 'var(--text-secondary)' }}>
+                            <div><span style={{ color: 'var(--text-muted)' }}>Calories:</span> <strong style={{ color: 'var(--text-primary)' }}>{p.mealTarget.calories}</strong></div>
+                            <div><span style={{ color: 'var(--text-muted)' }}>Protein:</span> <strong style={{ color: 'var(--text-primary)' }}>{p.mealTarget.protein}</strong></div>
+                            <div><span style={{ color: 'var(--text-muted)' }}>Carbs:</span> <strong style={{ color: 'var(--text-primary)' }}>{p.mealTarget.carbs}</strong></div>
+                            <div><span style={{ color: 'var(--text-muted)' }}>Fats:</span> <strong style={{ color: 'var(--text-primary)' }}>{p.mealTarget.fats}</strong></div>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                            No target nutritional values set for this day.
+                          </div>
+                        )}
+                      </div>
+                    )}
 
                     {newMeal.planId === p.id ? (
                       <form onSubmit={(e) => addMeal(e, p.id)} style={{

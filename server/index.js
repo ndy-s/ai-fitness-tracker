@@ -6,7 +6,8 @@ const { startCron } = require('./cron');
 const routes = require('./routes');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
+if (!PORT) throw new Error('PORT is not set in environment variables');
 
 app.use(cors());
 app.use(express.json());

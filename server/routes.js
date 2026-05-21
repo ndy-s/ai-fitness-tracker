@@ -148,12 +148,23 @@ router.delete('/daily/food/:id', async (req, res) => {
 });
 
 
+const SENSITIVE_KEYS = ['gemini_api_key', 'openrouter_api_key', 'telegram_bot_token'];
+
+function maskValue(key, val) {
+    if (!val) return '';
+    if (SENSITIVE_KEYS.includes(key)) {
+        if (val.length <= 8) return '••••••••';
+        return `${val.substring(0, 6)}••••••••${val.substring(val.length - 4)}`;
+    }
+    return val;
+}
+
 router.get('/config', async (req, res) => {
     try {
         const configs = await prisma.appConfig.findMany();
         const result = {};
         for (const c of configs) {
-            result[c.key] = c.value;
+            result[c.key] = maskValue(c.key, c.value);
         }
         res.json(result);
     } catch (err) {
@@ -165,6 +176,13 @@ router.get('/config', async (req, res) => {
 router.put('/config', async (req, res) => {
     try {
         const { key, value } = req.body;
+        
+        // If it's a sensitive key and the value is masked, DO NOT overwrite the real value in DB!
+        if (SENSITIVE_KEYS.includes(key) && value && value.includes('••••••••')) {
+            const existing = await prisma.appConfig.findUnique({ where: { key } });
+            return res.json(existing || { key, value: '' });
+        }
+
         const config = await prisma.appConfig.upsert({
             where: { key },
             update: { value },
@@ -255,6 +273,28 @@ router.delete('/workouts/:id', async (req, res) => {
 });
 
 
+router.put('/workouts/:id', async (req, res) => {
+    try {
+        const { name, reps, video } = req.body;
+        const workout = await prisma.workout.update({
+            where: { id: req.params.id },
+            data: { name, reps, video }
+        });
+        
+        await prisma.activityLog.create({
+            data: {
+                action: 'PLAN_UPDATED',
+                details: JSON.stringify({ source: 'web_ui', action: 'edit_workout', id: req.params.id })
+            }
+        });
+        
+        res.json(workout);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
 router.post('/meals', async (req, res) => {
     try {
         const { planId, time, title, items, kcal, protein, applyToAll } = req.body;
@@ -292,6 +332,51 @@ router.delete('/meals/:id', async (req, res) => {
         });
         
         res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+router.put('/meals/:id', async (req, res) => {
+    try {
+        const { time, title, items, kcal, protein } = req.body;
+        const meal = await prisma.mealSchedule.update({
+            where: { id: req.params.id },
+            data: { time, title, items: JSON.stringify(items), kcal, protein }
+        });
+        
+        await prisma.activityLog.create({
+            data: {
+                action: 'PLAN_UPDATED',
+                details: JSON.stringify({ source: 'web_ui', action: 'edit_meal', id: req.params.id })
+            }
+        });
+        
+        res.json(meal);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+
+router.put('/plans/:planId/target', async (req, res) => {
+    try {
+        const { calories, protein, carbs, fats } = req.body;
+        const target = await prisma.mealTarget.upsert({
+            where: { planId: req.params.planId },
+            update: { calories, protein, carbs, fats },
+            create: { planId: req.params.planId, calories, protein, carbs, fats }
+        });
+        
+        await prisma.activityLog.create({
+            data: {
+                action: 'PLAN_UPDATED',
+                details: JSON.stringify({ source: 'web_ui', action: 'update_target', planId: req.params.planId })
+            }
+        });
+        
+        res.json(target);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

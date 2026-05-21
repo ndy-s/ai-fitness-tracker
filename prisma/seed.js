@@ -23,9 +23,8 @@ const data = [
         dayOfWeek: "monday",
         title: "Monday",
         workouts: [
-            { name:"Push-ups", reps:"4 × 10–15", video:"https://www.youtube.com/watch?v=IODxDxX7oi4" },
-            { name:"Pike Push-ups", reps:"3 × 10", video:"https://www.youtube.com/watch?v=sposDXWEB0A" },
-            { name:"Diamond Push-ups", reps:"3 × 8–10", video:"https://www.youtube.com/watch?v=J0DnG1_S92I" }
+            { name: "Knee Push-ups / Standard Push-ups", reps: "3 × 8–12", video: "https://www.youtube.com/watch?v=IODxDxX7oi4" },
+            { name: "Plank Shoulder Taps", reps: "3 × 12–16 taps", video: "https://www.youtube.com/watch?v=gZHGk0B2n20" }
         ],
         meal: defaultMeal
     },
@@ -33,8 +32,8 @@ const data = [
         dayOfWeek: "tuesday",
         title: "Tuesday",
         workouts: [
-            { name:"Superman Hold", reps:"4 × 30 sec", video:"https://www.youtube.com/watch?v=z6PJMT2y8GQ" },
-            { name:"Y-T-W Raises", reps:"3 × 10", video:"https://www.youtube.com/watch?v=l_8rKIPkpx0" }
+            { name: "Superman Hold", reps: "3 × 20–30 sec", video: "https://www.youtube.com/watch?v=z6PJMT2y8GQ" },
+            { name: "Reverse Snow Angels", reps: "3 × 10–12", video: "https://www.youtube.com/watch?v=l_8rKIPkpx0" }
         ],
         meal: defaultMeal
     },
@@ -42,8 +41,9 @@ const data = [
         dayOfWeek: "wednesday",
         title: "Wednesday",
         workouts: [
-            { name:"Squats", reps:"4 × 15–20", video:"https://www.youtube.com/watch?v=gcNh17Ckjgg" },
-            { name:"Lunges", reps:"3 × 10", video:"https://www.youtube.com/watch?v=QOVaHwm-Q6U" }
+            { name: "Bodyweight Squats", reps: "3 × 10–15", video: "https://www.youtube.com/watch?v=gcNh17Ckjgg" },
+            { name: "Glute Bridges", reps: "3 × 12–15", video: "https://www.youtube.com/watch?v=wPM8co452AA" },
+            { name: "Calf Raises", reps: "3 × 15–20", video: "https://www.youtube.com/watch?v=-M4-G8p8fmc" }
         ],
         meal: defaultMeal
     },
@@ -58,8 +58,8 @@ const data = [
         dayOfWeek: "friday",
         title: "Friday",
         workouts: [
-            { name:"Slow Push-ups", reps:"3 × 8", video:"https://www.youtube.com/watch?v=IODxDxX7oi4" },
-            { name:"Plank", reps:"3 × 45 sec", video:"https://www.youtube.com/watch?v=pSHjTRCQxIw" }
+            { name: "Knee Push-ups", reps: "3 × 8–12", video: "https://www.youtube.com/watch?v=WcHtt6zT3Go" },
+            { name: "Plank Hold", reps: "3 × 30–45 sec", video: "https://www.youtube.com/watch?v=pSHjTRCQxIw" }
         ],
         meal: defaultMeal
     },
@@ -67,8 +67,8 @@ const data = [
         dayOfWeek: "saturday",
         title: "Saturday",
         workouts: [
-            { name:"Brisk Walk", reps:"20–25 min", video:"https://www.youtube.com/watch?v=kR6ZExOTB-U" },
-            { name:"Hollow Hold", reps:"3 × 20 sec", video:"https://www.youtube.com/watch?v=LlRo5mK2r-Q" }
+            { name: "Brisk Walk / Active Recovery", reps: "15–20 min", video: "https://www.youtube.com/watch?v=kR6ZExOTB-U" },
+            { name: "Bicycle Crunches", reps: "3 × 12–16", video: "https://www.youtube.com/watch?v=Iwyvozckjak" }
         ],
         meal: defaultMeal
     },

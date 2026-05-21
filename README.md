@@ -49,12 +49,16 @@ Initialize the database using Prisma:
 ```bash
 npx prisma init --datasource-provider sqlite
 ```
-This creates a `prisma/schema.prisma` file and a `.env` file. Update the root `.env` file with your API keys:
+This creates a `prisma/schema.prisma` file and a `.env` file. The `.env` file requires the database URL and the backend server port:
 ```env
 DATABASE_URL="file:./dev.db"
-GEMINI_API_KEY="your_google_gemini_api_key"
-OPENROUTER_API_KEY="your_openrouter_api_key"
+PORT=3000
 ```
+
+> [!IMPORTANT]
+> The server requires the `PORT` environment variable to be explicitly defined in your `.env`. If `PORT` is missing, the backend will throw an error and fail to start.
+>
+> AI model API keys (Gemini, OpenRouter) are configured directly from the **Settings & Management** page in the web UI. For security, these keys are automatically masked (e.g. `AIzaSy••••••••xxxx`) in API payloads and include a premium show/hide visibility toggle in the interface.
 
 Then generate and push the schema:
 ```bash

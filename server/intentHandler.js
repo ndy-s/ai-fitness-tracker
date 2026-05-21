@@ -73,6 +73,9 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
             }
         } catch (err) {
             console.error('AI intent classification failed:', err.message);
+            if (err.message.includes('No AI providers configured') || err.message.includes('missing API keys') || err.message.includes('is not set in configuration')) {
+                return 'Heads up — AI isn\'t set up yet.\n\nYou\'ll need to add your API keys (Gemini or OpenRouter) in the web dashboard under *Settings & Management* first.\n\nYou can still use keyword commands though:\n• "stats" — today\'s progress\n• "show my logs" — see what you logged\n• "weekly progress" — weekly summary\n• "plan today" — today\'s workout\n• "edit #1 300cal 20g" — fix a log\n• "delete #2" — remove a log';
+            }
             intent = 'UNSUPPORTED';
         }
     }
@@ -91,7 +94,7 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
 
     if (intent === 'LOG_FOOD') {
         if (sendReplyFn) {
-            await sendReplyFn('🤔 Estimating...');
+            await sendReplyFn('Got it, let me estimate that...');
         }
         
         const result = await estimateCalories(text);
@@ -125,16 +128,16 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
             }
         });
 
-        return `✅ *Logged:* ${result.description}\n🔥 *Calories:* ${result.calories} kcal\n🥩 *Protein:* ${result.protein}g`;
+        return `Logged *${result.description}* — ${result.calories} kcal, ${result.protein}g protein.`;
 
     } else if (intent === 'GET_STATS') {
         const log = await prisma.dailyLog.findUnique({ where: { date: today } });
         const mealTarget = await getTodayTarget();
 
         if (!log) {
-            return 'You haven\'t logged anything today yet! Get eating! 🍎';
+            return 'Nothing logged today yet. Go grab something to eat!';
         } else {
-            let reply = `📊 *Today's Stats*\n🔥 Calories: ${log.totalCalories} kcal\n🥩 Protein: ${log.totalProtein}g`;
+            let reply = `*Today so far:* ${log.totalCalories} kcal, ${log.totalProtein}g protein`;
 
             if (mealTarget) {
                 const targetCal = parseInt(mealTarget.calories) || 0;
@@ -143,13 +146,13 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
                 const remainPro = Math.max(0, targetPro - log.totalProtein);
                 const pctCal = targetCal > 0 ? Math.round((log.totalCalories / targetCal) * 100) : 0;
 
-                reply += `\n\n🎯 *Target:* ${targetCal} kcal / ${targetPro}g protein`;
-                reply += `\n📉 *Remaining:* ${remainCal} kcal / ${remainPro}g protein`;
-                reply += `\n📈 *Progress:* ${pctCal}%`;
+                reply += `\n*Target:* ${targetCal} kcal / ${targetPro}g protein`;
+                reply += `\n*Remaining:* ${remainCal} kcal / ${remainPro}g protein`;
+                reply += `\n*Progress:* ${pctCal}%`;
 
-                if (pctCal >= 100) reply += ` ✅ Target reached!`;
-                else if (pctCal >= 75) reply += ` 🔥 Almost there!`;
-                else if (pctCal >= 50) reply += ` 💪 Halfway!`;
+                if (pctCal >= 100) reply += ` — you hit your target!`;
+                else if (pctCal >= 75) reply += ` — almost there.`;
+                else if (pctCal >= 50) reply += ` — halfway, keep going.`;
             }
             return reply;
         }
@@ -165,17 +168,17 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
         if (!plan) {
             return 'No plan set for today.';
         } else if (plan.isRestDay) {
-            return `Today is a *Rest Day* (${plan.title}). Take it easy! 😴`;
+            return `Today is a rest day (${plan.title}). Take it easy.`;
         } else {
-            let reply = `💪 *Today's Plan: ${plan.title}*\n\n*Workouts:*\n`;
-            if (plan.workouts.length === 0) reply += 'No workouts scheduled.\n';
+            let reply = `*Today's Plan — ${plan.title}*\n\n*Workouts:*\n`;
+            if (plan.workouts.length === 0) reply += 'None scheduled.\n';
             for (const w of plan.workouts) {
-                reply += `- ${w.name} (${w.reps})\n`;
+                reply += `• ${w.name} — ${w.reps}\n`;
             }
             reply += `\n*Meals:*\n`;
-            if (plan.mealSchedules.length === 0) reply += 'No meals scheduled.\n';
+            if (plan.mealSchedules.length === 0) reply += 'None scheduled.\n';
             for (const m of plan.mealSchedules) {
-                reply += `- ${m.time}: ${m.title} (${m.kcal})\n`;
+                reply += `• ${m.time} — ${m.title} (${m.kcal})\n`;
             }
             return reply;
         }
@@ -186,14 +189,14 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
             include: { foodLogs: { orderBy: { time: 'asc' } } }
         });
         if (!log || log.foodLogs.length === 0) {
-            return 'You haven\'t logged any food today. 🍽️';
+            return 'No food logged today yet.';
         } else {
-            let reply = `📋 *Today's Food Log:*\n\n`;
+            let reply = `*Today's food log:*\n\n`;
             log.foodLogs.forEach((f, i) => {
-                reply += `*#${i + 1}* ${f.description} (${f.calories} kcal, ${f.protein}g)\n`;
+                reply += `*#${i + 1}* ${f.description} — ${f.calories} kcal, ${f.protein}g\n`;
             });
             reply += `\n*Total:* ${log.totalCalories} kcal, ${log.totalProtein}g protein`;
-            reply += `\n\n_Use "edit #1 300cal 20g" or "delete #2" to modify_`;
+            reply += `\n\n_Say "edit #1 300cal 20g" or "delete #2" to make changes._`;
             return reply;
         }
 
@@ -204,7 +207,7 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
         });
 
         if (!log || log.foodLogs.length === 0) {
-            return 'You haven\'t logged anything today yet to delete.';
+            return 'Nothing logged today, so there\'s nothing to delete.';
         }
 
         let toDeleteItems = [];
@@ -226,7 +229,7 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
         }
 
         if (toDeleteItems.length === 0) {
-            return `I couldn't find that item. Use "show my logs" to see numbered items, then "delete #1" or "delete #1 and #2".`;
+            return `Couldn't find that item. Try "show my logs" to see numbered items, then "delete #1".`;
         }
 
         let totalCalDeleted = 0;
@@ -255,7 +258,7 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
             }
         });
 
-        return `🗑️ Deleted: ${deletedDescriptions.join(', ')} (-${totalCalDeleted} kcal)`;
+        return `Done, removed ${deletedDescriptions.join(', ')} (−${totalCalDeleted} kcal).`;
 
     } else if (intent === 'EDIT_FOOD') {
         const log = await prisma.dailyLog.findUnique({
@@ -264,12 +267,12 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
         });
 
         if (!log || log.foodLogs.length === 0) {
-            return 'You haven\'t logged anything today to edit.';
+            return 'Nothing logged today, so there\'s nothing to edit.';
         }
 
         const editMatches = lowerText.match(/#\d+/g);
         if (!editMatches) {
-            return 'Please specify which item to edit, e.g. "edit #1 to 300cal 20g".\nUse "show my logs" to see numbered items.';
+            return 'Which item? Try something like "edit #1 to 300cal 20g".\nSay "show my logs" to see the list.';
         }
 
         let toEditItems = [];
@@ -283,7 +286,7 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
         toEditItems = [...new Set(toEditItems)];
 
         if (toEditItems.length === 0) {
-            return `Item(s) not found. You have ${log.foodLogs.length} items logged.`;
+            return `Couldn't find that item. You have ${log.foodLogs.length} items logged right now.`;
         }
 
         const calMatch = lowerText.match(/(\d+)\s*(?:cal|kcal|calories)/);
@@ -323,7 +326,7 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
             }
         });
 
-        return `✏️ Updated:\n${editDescriptions.join('\n')}`;
+        return `Updated:\n${editDescriptions.join('\n')}`;
 
     } else if (intent === 'GET_WEEKLY') {
         const dates = [];
@@ -342,7 +345,7 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
         for (const l of logs) logMap[l.date] = l;
 
         let totalCal = 0, totalPro = 0, daysLogged = 0;
-        let reply = `📅 *Weekly Summary (Last 7 Days)*\n\n`;
+        let reply = `*Your week (last 7 days):*\n\n`;
 
         for (const date of dates) {
             const l = logMap[date];
@@ -360,14 +363,14 @@ async function handleMessageIntent(text, platform, sendReplyFn) {
         const avgCal = daysLogged > 0 ? Math.round(totalCal / daysLogged) : 0;
         const avgPro = daysLogged > 0 ? Math.round(totalPro / daysLogged) : 0;
 
-        reply += `\n📊 *Averages:* ${avgCal} kcal / ${avgPro}g protein per day`;
-        reply += `\n🔥 *Total:* ${totalCal} kcal / ${totalPro}g protein`;
+        reply += `\n*Avg per day:* ${avgCal} kcal / ${avgPro}g protein`;
+        reply += `\n*Weekly total:* ${totalCal} kcal / ${totalPro}g protein`;
         return reply;
 
     } else if (intent === 'UNSUPPORTED') {
-        return `🤔 Sorry, I can't help with that request.\n\nI'm a *fitness & nutrition bot* — here's what I can do:\n\n🍎 *Log Food* — "I ate 2 eggs and toast"\n📊 *Check Stats* — "How many calories today?"\n📅 *Weekly Progress* — "Weekly progress"\n📋 *View Logs* — "What did I eat today?"\n✏️ *Edit Log* — "Edit #1 to 300cal 20g"\n🗑️ *Delete Log* — "Delete #2"\n💪 *Today's Plan* — "What's my workout today?"\n\nType *help* for more details!`;
+        return `Hey, I can only help with fitness and nutrition stuff. Here's what I understand:\n\n• *Log food* — "I ate 2 eggs and toast"\n• *Check stats* — "How many calories today?"\n• *Weekly progress* — "Weekly progress"\n• *View logs* — "What did I eat today?"\n• *Edit a log* — "Edit #1 to 300cal 20g"\n• *Delete a log* — "Delete #2"\n• *Today's plan* — "What's my workout today?"\n\nSay *help* if you need more info.`;
     } else {
-        return `🤖 *AI Fitness Tracker*\n\nHere's what you can say:\n\n🍎 *Log Food*\n• "I ate 2 eggs and toast"\n\n📊 *Check Progress*\n• "How many calories today?"\n• "How many left?" / "Target"\n• "Weekly progress"\n\n📋 *View Logs*\n• "What did I eat today?"\n\n✏️ *Edit Log*\n• "Edit #1 to 300cal 20g"\n\n🗑️ *Delete Log*\n• "Delete #2"\n\n💪 *Today's Plan*\n• "What's my workout today?"`;
+        return `*Hey! Here's what I can help you with:*\n\n• *Log food* — just tell me what you ate, like "2 eggs and toast"\n• *Check progress* — "how many calories today?" or "target"\n• *Weekly summary* — "weekly progress"\n• *View logs* — "what did I eat today?"\n• *Edit a log* — "edit #1 to 300cal 20g"\n• *Delete a log* — "delete #2"\n• *Today's plan* — "what's my workout today?"\n\nJust type naturally, I'll figure it out.`;
     }
 }
 
