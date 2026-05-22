@@ -7,6 +7,10 @@
 
 ## About This Project
 
+<p align="left">
+  <img src="https://github.com/ndy-s/ai-fitness-tracker/blob/main/assets/ui.jpeg" alt="AI Fitness Tracker Demo" width="800"/>
+</p>
+
 This project started from a personal problem. I wanted a simpler way to track my workouts, meals, and daily progress without using complicated apps or forms. I also wanted reminders that felt natural and motivating.
 
 The goal was simple. I wanted something that felt more like a personal coach than a traditional fitness app. Instead of opening menus, I could just send messages through WhatsApp or Telegram like I was talking to a real person.
