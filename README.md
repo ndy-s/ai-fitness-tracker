@@ -7,9 +7,13 @@
 
 ## About This Project
 
-This project started as a way to seamlessly track daily meals and motivate myself with engaging reminders, while having a built-in intelligent WhatsApp AI agent right at my fingertips. 
+This project started from a personal problem. I wanted a simpler way to track my workouts, meals, and daily progress without using complicated apps or forms. I also wanted reminders that felt natural and motivating.
 
-What began as a simple tracker grew into a multi-provider fallback system with a smart agentic web UI. It's designed to act as your own personal coach that you can talk to naturally, the same way you would with a human.
+At first, it was just a small tracker built for myself. Over time, it grew into an AI-powered assistant with a smart web interface and a multi-provider fallback system.
+
+The goal was simple. I wanted something that felt more like a personal coach than a traditional fitness app. Instead of opening menus, I could just send messages through WhatsApp or Telegram like I was talking to a real person.
+
+The assistant can track meals, log workouts, estimate calories and protein, calculate macros, and provide progress summaries through simple conversations.
 
 ### The Core Idea
 
@@ -110,3 +114,6 @@ You can now chat with the bot to log food, log your daily workouts, ask for week
 * **Bot**: `@whiskeysockets/baileys` (WhatsApp), `node-telegram-bot-api` (Telegram)
 * **AI Integration**: Google GenAI SDK / OpenRouter API (`axios`)
 * **Scheduler**: `node-cron`
+
+## License
+MIT
