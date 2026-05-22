@@ -9,8 +9,6 @@
 
 This project started from a personal problem. I wanted a simpler way to track my workouts, meals, and daily progress without using complicated apps or forms. I also wanted reminders that felt natural and motivating.
 
-At first, it was just a small tracker built for myself. Over time, it grew into an AI-powered assistant with a smart web interface and a multi-provider fallback system.
-
 The goal was simple. I wanted something that felt more like a personal coach than a traditional fitness app. Instead of opening menus, I could just send messages through WhatsApp or Telegram like I was talking to a real person.
 
 The assistant can track meals, log workouts, estimate calories and protein, calculate macros, and provide progress summaries through simple conversations.
@@ -31,7 +29,7 @@ It uses a Multi-Provider AI Fallback system integrating Google Gemini 2.5 Flash 
 
 The web UI provides a glassmorphism Light Theme dashboard built in React. You can view your 30-day history with dual-axis line charts and even chat with a global floating AI Agent to adjust your weekly workout or meal plans. And all of it runs locally, directly from your laptop.
 
-**Intelligent Check-ins**: The system features a background cron job that monitors your meal schedules. It uses a sliding 15-minute window to check if you've logged any food around your planned meal times. If you haven't, it triggers a Humane AI check-in, where the AI proactively messages you like a supportive coach, suggesting quick alternatives to hit your macros if you're too busy to cook!
+**Intelligent Check-ins**: The system includes a background scheduler that monitors meal timing throughout the day. It uses a sliding 45-minute window around planned meal times to determine whether any food has been logged. If no meal is recorded within that period, the system triggers a proactive check-in through Humane AI. The assistant then reaches out as a supportive coach, offering simple and practical food suggestions to help you stay on track with your macros, especially on busy days when cooking is not convenient.
 
 ## Quick Setup
 
